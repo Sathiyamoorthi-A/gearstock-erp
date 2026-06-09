@@ -1,0 +1,130 @@
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  animation: slideUp 0.5s ease-out 0.4s backwards;
+  transition: all var(--transition-normal);
+}
+
+.card:hover {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 12px;
+  background: var(--accent-primary);
+  color: #000;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 310px;
+  overflow-y: auto;
+}
+
+.alertItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid transparent;
+  transition: all var(--transition-fast);
+  cursor: default;
+}
+
+.alertItem:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.alertCritical {
+  border-left-color: var(--status-returned);
+}
+
+.alertWarning {
+  border-left-color: var(--accent-primary);
+}
+
+.alertIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  font-size: 16px;
+}
+
+.alertIconCritical {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+}
+
+.alertIconWarning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #fbbf24;
+}
+
+.alertInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.alertName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.alertMeta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.remaining {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.remainingCritical {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.remainingWarning {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.1);
+}

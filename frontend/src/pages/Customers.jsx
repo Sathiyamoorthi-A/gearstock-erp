@@ -1,23 +1,14 @@
 import { useState, useEffect } from 'react';
-import { FiSearch, FiPlus, FiEdit2, FiEye } from 'react-icons/fi';
-import api from '../api/axios';
+import { FiSearch, FiPlus, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import { getAllCustomers, createCustomer, updateCustomer, deleteCustomer } from '../api/customers';
 import styles from './Customers.module.css';
 
-const sampleCustomers = [
-  { id: 1, name: 'Rajesh Auto Garage', type: 'Workshop', email: 'rajesh@autogarage.in', phone: '+91 98765 11111', totalSpent: 284000, orders: 45, status: 'Active', color: '#f59e0b' },
-  { id: 2, name: 'City Motors Workshop', type: 'Service Center', email: 'info@citymotors.com', phone: '+91 98765 22222', totalSpent: 412000, orders: 68, status: 'Active', color: '#3b82f6' },
-  { id: 3, name: 'Krishna Car Care', type: 'Dealer', email: 'krishna@carcare.in', phone: '+91 98765 33333', totalSpent: 156000, orders: 23, status: 'Active', color: '#10b981' },
-  { id: 4, name: 'Highway Auto Services', type: 'Workshop', email: 'highway@auto.in', phone: '+91 98765 44444', totalSpent: 89000, orders: 15, status: 'Inactive', color: '#ef4444' },
-  { id: 5, name: 'Patel Mechanic Works', type: 'Workshop', email: 'patel@mechworks.in', phone: '+91 98765 55555', totalSpent: 567000, orders: 92, status: 'Active', color: '#8b5cf6' },
-  { id: 6, name: 'Star Auto Repairs', type: 'Service Center', email: 'star@autorepairs.com', phone: '+91 98765 66666', totalSpent: 210000, orders: 37, status: 'Active', color: '#f97316' },
-  { id: 7, name: 'Quick Fix Automobiles', type: 'Dealer', email: 'quickfix@auto.in', phone: '+91 98765 77777', totalSpent: 334000, orders: 54, status: 'Active', color: '#06b6d4' },
-  { id: 8, name: 'Metro Auto Parts Retail', type: 'Retail', email: 'metro@autoparts.in', phone: '+91 98765 88888', totalSpent: 890000, orders: 128, status: 'Active', color: '#ec4899' },
-];
-
 function Customers() {
-  const [customers, setCustomers] = useState(sampleCustomers);
+  const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalType, setModalType] = useState('add'); // 'add' or 'edit'
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
 
   // Form State
   const [name, setName] = useState('');
@@ -36,15 +27,17 @@ function Customers() {
 
   const fetchCustomers = async () => {
     try {
-      const response = await api.get('/customers');
-      if (response.data && Array.isArray(response.data)) {
+      const data = await getAllCustomers();
+      if (data && Array.isArray(data)) {
         const colors = ['#f59e0b', '#3b82f6', '#10b981', '#ef4444', '#8b5cf6', '#f97316', '#06b6d4', '#ec4899'];
-        const mapped = response.data.map((item, idx) => ({
+        const mapped = data.map((item, idx) => ({
           id: item.id,
           name: item.name,
+          company: item.company || '',
           type: item.company || 'Individual',
           email: item.email || 'N/A',
           phone: item.phone || 'N/A',
+          address: item.address || '',
           totalSpent: 120000 + ((idx * 27) % 73) * 5000,
           orders: 5 + ((idx * 3) % 19),
           status: 'Active',
@@ -53,7 +46,7 @@ function Customers() {
         setCustomers(mapped);
       }
     } catch {
-      // Use sample data
+      // Handled by API fallback
     }
   };
 
@@ -66,33 +59,69 @@ function Customers() {
 
   const filtered = customers.filter(c => {
     const q = search.toLowerCase();
-    return c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q);
+    return (
+      c.name.toLowerCase().includes(q) ||
+      c.email.toLowerCase().includes(q) ||
+      (c.company && c.company.toLowerCase().includes(q))
+    );
   });
 
-  const handleAddCustomer = async (e) => {
+  const openAddModal = () => {
+    setModalType('add');
+    setSelectedCustomer(null);
+    setName('');
+    setCompany('');
+    setEmail('');
+    setPhone('');
+    setAddress('');
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (customer) => {
+    setModalType('edit');
+    setSelectedCustomer(customer);
+    setName(customer.name);
+    setCompany(customer.company);
+    setEmail(customer.email);
+    setPhone(customer.phone);
+    setAddress(customer.address);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteCustomer = async (id) => {
+    if (window.confirm('Are you sure you want to delete this customer?')) {
+      try {
+        await deleteCustomer(id);
+        showToast('Customer deleted successfully');
+        fetchCustomers();
+      } catch (err) {
+        showToast('Failed to delete customer', 'error');
+      }
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    const payload = {
+      name,
+      company,
+      email,
+      phone,
+      address
+    };
+
     try {
-      await api.post('/customers', {
-        name,
-        company,
-        email,
-        phone,
-        address
-      });
-      showToast('Customer added successfully');
+      if (modalType === 'add') {
+        await createCustomer(payload);
+        showToast('Customer added successfully');
+      } else {
+        await updateCustomer(selectedCustomer.id, payload);
+        showToast('Customer updated successfully');
+      }
       setIsModalOpen(false);
-
-      // Reset form
-      setName('');
-      setCompany('');
-      setEmail('');
-      setPhone('');
-      setAddress('');
-
-      // Refresh list
       fetchCustomers();
     } catch (err) {
-      showToast('Failed to add customer', 'error');
+      showToast('Failed to save customer details', 'error');
     }
   };
 
@@ -117,7 +146,7 @@ function Customers() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <button className={styles.addBtn} onClick={() => setIsModalOpen(true)}>
+          <button className={styles.addBtn} onClick={openAddModal}>
             <FiPlus size={16} />
             Add Customer
           </button>
@@ -125,69 +154,85 @@ function Customers() {
       </div>
 
       <div className={styles.tableCard}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Customer</th>
-              <th>Email</th>
-              <th>Phone</th>
-              <th>Total Spent</th>
-              <th>Orders</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((customer) => (
-              <tr key={customer.id}>
-                <td>
-                  <div className={styles.customerInfo}>
-                    <div
-                      className={styles.customerAvatar}
-                      style={{ background: `${customer.color}20`, color: customer.color }}
-                    >
-                      {getInitials(customer.name)}
-                    </div>
-                    <div>
-                      <div className={styles.customerName}>{customer.name}</div>
-                      <div className={styles.customerType}>{customer.type}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className={styles.email}>{customer.email}</td>
-                <td className={styles.phone}>{customer.phone}</td>
-                <td className={styles.totalSpent}>{formatAmount(customer.totalSpent)}</td>
-                <td>{customer.orders}</td>
-                <td>
-                  <span className={`${styles.badge} ${customer.status === 'Active' ? styles.badgeActive : styles.badgeInactive}`}>
-                    {customer.status}
-                  </span>
-                </td>
-                <td>
-                  <div className={styles.actions}>
-                    <button className={styles.actionBtn} title="View">
-                      <FiEye size={15} />
-                    </button>
-                    <button className={styles.actionBtn} title="Edit">
-                      <FiEdit2 size={15} />
-                    </button>
-                  </div>
-                </td>
+        {filtered.length > 0 ? (
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Total Spent</th>
+                <th>Orders</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.map((customer) => (
+                <tr key={customer.id}>
+                  <td>
+                    <div className={styles.customerInfo}>
+                      <div
+                        className={styles.customerAvatar}
+                        style={{ background: `${customer.color}20`, color: customer.color }}
+                      >
+                        {getInitials(customer.name)}
+                      </div>
+                      <div>
+                        <div className={styles.customerName}>{customer.name}</div>
+                        <div className={styles.customerType}>{customer.type}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className={styles.email}>{customer.email}</td>
+                  <td className={styles.phone}>{customer.phone}</td>
+                  <td className={styles.totalSpent}>{formatAmount(customer.totalSpent)}</td>
+                  <td>{customer.orders}</td>
+                  <td>
+                    <span className={`${styles.badge} ${customer.status === 'Active' ? styles.badgeActive : styles.badgeInactive}`}>
+                      {customer.status}
+                    </span>
+                  </td>
+                  <td>
+                    <div className={styles.actions}>
+                      <button
+                        className={styles.actionBtn}
+                        title="Edit Customer"
+                        onClick={() => openEditModal(customer)}
+                      >
+                        <FiEdit2 size={14} />
+                      </button>
+                      <button
+                        className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
+                        title="Delete Customer"
+                        onClick={() => handleDeleteCustomer(customer.id)}
+                      >
+                        <FiTrash2 size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+            No customers found matching the search.
+          </div>
+        )}
       </div>
 
       {isModalOpen && (
         <div className={styles.modalOverlay}>
           <div className={styles.modal}>
             <div className={styles.modalHeader}>
-              <h3 className={styles.modalTitle}>Add New Customer</h3>
+              <h3 className={styles.modalTitle}>
+                {modalType === 'add' ? 'Add New Customer' : 'Edit Customer Details'}
+              </h3>
               <button className={styles.closeBtn} onClick={() => setIsModalOpen(false)}>×</button>
             </div>
 
-            <form onSubmit={handleAddCustomer}>
+            <form onSubmit={handleSubmit}>
               <div className={styles.formGrid}>
                 <div className={`${styles.formGroup} ${styles.formGroupFull}`}>
                   <label className={styles.label}>Customer Name</label>
@@ -254,7 +299,7 @@ function Customers() {
                   Cancel
                 </button>
                 <button type="submit" className={styles.submitBtn}>
-                  Add Customer
+                  {modalType === 'add' ? 'Add Customer' : 'Save Changes'}
                 </button>
               </div>
             </form>

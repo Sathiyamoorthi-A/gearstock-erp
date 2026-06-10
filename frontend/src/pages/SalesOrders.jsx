@@ -1,19 +1,10 @@
 import { useState, useEffect } from 'react';
-import { FiFilter, FiPlus } from 'react-icons/fi';
+import { FiPlus, FiTrash2 } from 'react-icons/fi';
 import { HiShoppingCart } from 'react-icons/hi2';
-import { getAllOrders } from '../api/orders';
+import { getAllOrders, createOrder, updateOrderStatus } from '../api/orders';
+import { getAllCustomers } from '../api/customers';
+import { getAllParts } from '../api/inventory';
 import styles from './SalesOrders.module.css';
-
-const sampleOrders = [
-  { id: '#SO-7831', customer: 'Rajesh Auto Garage', items: 5, total: 28400, date: '2026-04-29', status: 'Delivered' },
-  { id: '#SO-7830', customer: 'City Motors Workshop', items: 3, total: 18900, date: '2026-04-28', status: 'Shipped' },
-  { id: '#SO-7829', customer: 'Krishna Car Care', items: 8, total: 42600, date: '2026-04-28', status: 'Processing' },
-  { id: '#SO-7828', customer: 'Highway Auto Services', items: 2, total: 15200, date: '2026-04-27', status: 'Delivered' },
-  { id: '#SO-7827', customer: 'Patel Mechanic Works', items: 12, total: 56800, date: '2026-04-26', status: 'Delivered' },
-  { id: '#SO-7826', customer: 'Star Auto Repairs', items: 4, total: 21000, date: '2026-04-25', status: 'Returned' },
-  { id: '#SO-7825', customer: 'Quick Fix Automobiles', items: 6, total: 34200, date: '2026-04-24', status: 'Shipped' },
-  { id: '#SO-7824', customer: 'Metro Auto Parts Retail', items: 15, total: 89000, date: '2026-04-23', status: 'Processing' },
-];
 
 const statusMap = {
   'DELIVERED': styles.badgeDelivered,
@@ -26,7 +17,17 @@ const statusMap = {
 };
 
 function SalesOrders() {
-  const [orders, setOrders] = useState(sampleOrders);
+  const [orders, setOrders] = useState([]);
+  const [customersList, setCustomersList] = useState([]);
+  const [partsList, setPartsList] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // New Sale Form State
+  const [customerId, setCustomerId] = useState('');
+  const [notes, setNotes] = useState('');
+  const [items, setItems] = useState([]);
+
+  // Toast feedback
   const [toast, setToast] = useState(null);
 
   const showToast = (message, type = 'success') => {
@@ -34,27 +35,156 @@ function SalesOrders() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const data = await getAllOrders('SALES');
-        if (data && Array.isArray(data)) {
-          const mapped = data.map(item => ({
-            id: item.orderNumber || `#SO-${item.id}`,
-            customer: item.customer ? item.customer.name : 'N/A',
-            items: item.items ? item.items.length : 0,
-            total: item.totalAmount || 0,
-            date: item.createdAt ? item.createdAt.substring(0, 10) : 'N/A',
-            status: item.status
-          }));
-          setOrders(mapped);
-        }
-      } catch {
-        // Use sample data
+  const fetchOrders = async () => {
+    try {
+      const data = await getAllOrders('SALES');
+      if (data && Array.isArray(data)) {
+        const mapped = data.map(item => ({
+          id: item.orderNumber || `#SO-${item.id}`,
+          realId: item.id,
+          customer: item.customer ? item.customer.name : 'N/A',
+          items: item.items ? item.items.length : 0,
+          total: item.totalAmount || 0,
+          date: item.createdAt ? item.createdAt.substring(0, 10) : 'N/A',
+          status: item.status
+        }));
+        setOrders(mapped);
       }
-    };
+    } catch (err) {
+      console.error('Error fetching sales orders', err);
+    }
+  };
+
+  const loadDependencies = async () => {
+    try {
+      const [customersData, partsData] = await Promise.all([
+        getAllCustomers(),
+        getAllParts()
+      ]);
+      setCustomersList(customersData || []);
+      setPartsList(partsData || []);
+      if (customersData && customersData.length > 0) {
+        setCustomerId(customersData[0].id);
+      }
+    } catch (err) {
+      console.warn('Error loading sales order dependencies', err);
+    }
+  };
+
+  useEffect(() => {
     fetchOrders();
+    loadDependencies();
   }, []);
+
+  const handleStatusChange = async (orderId, newStatus) => {
+    try {
+      await updateOrderStatus(orderId, newStatus);
+      showToast(`Order status updated to ${newStatus}`);
+      fetchOrders();
+    } catch (err) {
+      showToast('Failed to update order status', 'error');
+    }
+  };
+
+  const handleOpenModal = () => {
+    setNotes('');
+    if (customersList.length > 0) {
+      setCustomerId(customersList[0].id);
+    }
+    // Pre-fill with one empty item row
+    if (partsList.length > 0) {
+      setItems([{
+        partId: partsList[0].id,
+        quantity: 1,
+        unitPrice: partsList[0].price || 0
+      }]);
+    } else {
+      setItems([]);
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleAddItemRow = () => {
+    if (partsList.length === 0) {
+      showToast('No parts available to add', 'error');
+      return;
+    }
+    setItems([
+      ...items,
+      {
+        partId: partsList[0].id,
+        quantity: 1,
+        unitPrice: partsList[0].price || 0
+      }
+    ]);
+  };
+
+  const handleRemoveItemRow = (index) => {
+    setItems(items.filter((_, i) => i !== index));
+  };
+
+  const handleItemPartChange = (index, selectedPartId) => {
+    const partObj = partsList.find(p => p.id === Number(selectedPartId));
+    if (!partObj) return;
+
+    setItems(items.map((it, i) => i === index ? {
+      ...it,
+      partId: partObj.id,
+      unitPrice: partObj.price || 0
+    } : it));
+  };
+
+  const handleItemFieldChange = (index, field, value) => {
+    setItems(items.map((it, i) => i === index ? {
+      ...it,
+      [field]: Number(value)
+    } : it));
+  };
+
+  // Grand Total Calculation
+  const grandTotal = items.reduce((sum, it) => sum + (it.quantity * it.unitPrice), 0);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (items.length === 0) {
+      showToast('Please add at least one part to the order', 'error');
+      return;
+    }
+
+    // Verify stock levels before selling (optional but nice)
+    let insStock = true;
+    items.forEach(it => {
+      const partObj = partsList.find(p => p.id === Number(it.partId));
+      if (partObj && partObj.quantity < it.quantity) {
+        insStock = false;
+        showToast(`Insufficient stock for ${partObj.name}. Available: ${partObj.quantity}`, 'error');
+      }
+    });
+
+    if (!insStock) return;
+
+    const payload = {
+      orderType: 'SALES',
+      status: 'PENDING',
+      notes,
+      totalAmount: grandTotal,
+      customer: { id: Number(customerId) },
+      items: items.map(it => ({
+        part: { id: Number(it.partId) },
+        quantity: Number(it.quantity),
+        unitPrice: Number(it.unitPrice)
+      }))
+    };
+
+    try {
+      await createOrder(payload);
+      showToast('Sales Order created successfully');
+      setIsModalOpen(false);
+      fetchOrders();
+    } catch (err) {
+      showToast('Failed to create sales order', 'error');
+    }
+  };
 
   const formatAmount = (amount) => '₹' + Number(amount).toLocaleString('en-IN');
 
@@ -69,11 +199,7 @@ function SalesOrders() {
       <div className={styles.pageHeader}>
         <h2 className={styles.pageTitle}>Sales Orders</h2>
         <div className={styles.controls}>
-          <button className={styles.filterBtn} onClick={() => showToast('Order filtering is simulated in local view')}>
-            <FiFilter size={15} />
-            Filter
-          </button>
-          <button className={styles.createBtn} onClick={() => showToast('New Sales Order modal is under construction')}>
+          <button className={styles.createBtn} onClick={handleOpenModal}>
             <FiPlus size={16} />
             New Sale
           </button>
@@ -87,24 +213,33 @@ function SalesOrders() {
               <tr>
                 <th>Order ID</th>
                 <th>Customer</th>
-                <th>Items</th>
-                <th>Total</th>
-                <th>Date</th>
-                <th>Status</th>
+                <th>Items Count</th>
+                <th>Total Value</th>
+                <th>Order Date</th>
+                <th>Update Status</th>
               </tr>
             </thead>
             <tbody>
-              {orders.map((order, idx) => (
-                <tr key={idx}>
+              {orders.map((order) => (
+                <tr key={order.id}>
                   <td className={styles.orderId}>{order.id}</td>
                   <td className={styles.customer}>{order.customer}</td>
-                  <td>{order.items}</td>
+                  <td>{order.items} items</td>
                   <td className={styles.amount}>{formatAmount(order.total)}</td>
                   <td className={styles.date}>{order.date}</td>
                   <td>
-                    <span className={`${styles.badge} ${statusMap[order.status] || styles.badgePending}`}>
-                      {order.status}
-                    </span>
+                    <select
+                      className={`${styles.badge} ${statusMap[order.status] || styles.badgePending}`}
+                      value={order.status}
+                      onChange={(e) => handleStatusChange(order.realId || order.id, e.target.value)}
+                    >
+                      <option value="PENDING">PENDING</option>
+                      <option value="PROCESSING">PROCESSING</option>
+                      <option value="SHIPPED">SHIPPED</option>
+                      <option value="DELIVERED">DELIVERED</option>
+                      <option value="RETURNED">RETURNED</option>
+                      <option value="CANCELLED">CANCELLED</option>
+                    </select>
                   </td>
                 </tr>
               ))}
@@ -117,6 +252,130 @@ function SalesOrders() {
           </div>
         )}
       </div>
+
+      {isModalOpen && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modal}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>Create Sales Order</h3>
+              <button className={styles.closeBtn} onClick={() => setIsModalOpen(false)}>×</button>
+            </div>
+
+            <form onSubmit={handleSubmit}>
+              <div className={styles.formGrid}>
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>Select Customer</label>
+                  <select
+                    required
+                    className={styles.select}
+                    value={customerId}
+                    onChange={(e) => setCustomerId(e.target.value)}
+                  >
+                    {customersList.map(c => (
+                      <option key={c.id} value={c.id}>{c.name} ({c.type})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>Notes</label>
+                  <input
+                    className={styles.input}
+                    type="text"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="e.g. Standard garage delivery, COD"
+                  />
+                </div>
+              </div>
+
+              <div className={styles.itemsSection}>
+                <div className={styles.sectionHeader}>
+                  <h4 className={styles.label}>Parts / Order Items</h4>
+                  <button type="button" className={styles.addItemBtn} onClick={handleAddItemRow}>
+                    <FiPlus size={14} /> Add Part
+                  </button>
+                </div>
+
+                <table className={styles.itemsTable}>
+                  <thead>
+                    <tr>
+                      <th style={{ width: '40%' }}>Part SKU / Name</th>
+                      <th style={{ width: '20%' }}>Unit Price (₹)</th>
+                      <th style={{ width: '15%' }}>Quantity</th>
+                      <th style={{ width: '20%' }}>Subtotal</th>
+                      <th style={{ width: '5%' }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item, index) => (
+                      <tr key={index}>
+                        <td>
+                          <select
+                            className={styles.select}
+                            value={item.partId}
+                            onChange={(e) => handleItemPartChange(index, e.target.value)}
+                          >
+                            {partsList.map(p => (
+                              <option key={p.id} value={p.id}>{p.sku} — {p.name} (Stock: {p.quantity})</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          <input
+                            required
+                            min="0"
+                            className={styles.input}
+                            type="number"
+                            value={item.unitPrice}
+                            onChange={(e) => handleItemFieldChange(index, 'unitPrice', e.target.value)}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            required
+                            min="1"
+                            className={styles.input}
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => handleItemFieldChange(index, 'quantity', e.target.value)}
+                          />
+                        </td>
+                        <td style={{ fontWeight: 600, paddingLeft: '8px' }}>
+                          {formatAmount(item.quantity * item.unitPrice)}
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className={styles.removeBtn}
+                            onClick={() => handleRemoveItemRow(index)}
+                          >
+                            <FiTrash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <div className={styles.grandTotalRow}>
+                  <span>Grand Total:</span>
+                  <span className={styles.grandTotalAmount}>{formatAmount(grandTotal)}</span>
+                </div>
+              </div>
+
+              <div className={styles.modalFooter}>
+                <button type="button" className={styles.cancelBtn} onClick={() => setIsModalOpen(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className={styles.submitBtn}>
+                  Save Sales Order
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

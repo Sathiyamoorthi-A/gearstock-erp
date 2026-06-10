@@ -322,3 +322,35 @@
   font-weight: 500;
   color: var(--text-primary);
 }
+
+.actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+  align-self: flex-start;
+}
+
+.actionBtn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.actionBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.actionBtnDelete:hover {
+  color: var(--status-returned) !important;
+  border-color: var(--status-returned) !important;
+}

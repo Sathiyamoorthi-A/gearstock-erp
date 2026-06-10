@@ -205,3 +205,249 @@
   font-weight: 500;
   color: var(--text-primary);
 }
+
+/* Modal and multi-item picker styles */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(10, 10, 15, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 820px;
+  padding: 28px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-card);
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modalTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.closeBtn {
+  color: var(--text-muted);
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  transition: color var(--transition-fast);
+}
+
+.closeBtn:hover {
+  color: var(--text-primary);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.formGroupFull {
+  grid-column: span 2;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.input, .select, .textarea {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+  transition: all var(--transition-normal);
+}
+
+.input:focus, .select:focus, .textarea:focus {
+  border-color: var(--accent-primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.itemsSection {
+  margin-top: 24px;
+  margin-bottom: 24px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 20px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.addItemBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  color: var(--accent-primary);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.addItemBtn:hover {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: var(--accent-primary);
+}
+
+.itemsTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.itemsTable th {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.itemsTable td {
+  padding: 8px 4px;
+  vertical-align: middle;
+}
+
+.removeBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.removeBtn:hover {
+  color: var(--status-returned);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.grandTotalRow {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.grandTotalAmount {
+  color: var(--accent-primary);
+  font-size: 18px;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 20px;
+}
+
+.cancelBtn {
+  padding: 10px 18px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.cancelBtn:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+}
+
+.submitBtn {
+  padding: 10px 22px;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  color: #000;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-normal);
+  cursor: pointer;
+}
+
+.submitBtn:hover {
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+}
+
+.statusSelect {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.statusSelect:focus {
+  border-color: var(--accent-primary);
+}

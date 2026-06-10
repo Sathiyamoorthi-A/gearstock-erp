@@ -365,3 +365,8 @@
   font-weight: 500;
   color: var(--text-primary);
 }
+
+.actionBtnDelete:hover {
+  color: var(--status-returned) !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiSearch } from 'react-icons/fi';
 import { HiShoppingCart } from 'react-icons/hi2';
 import { getAllOrders, createOrder, updateOrderStatus } from '../api/orders';
 import { getAllCustomers } from '../api/customers';
@@ -380,26 +380,29 @@ function SalesOrders() {
                 <div className={styles.formGroup}>
                   <label className={styles.label}>Customer Lookup</label>
                   <div className={styles.autocompleteContainer}>
-                    <input
-                      ref={customerInputRef}
-                      required
-                      type="text"
-                      className={styles.input}
-                      placeholder="Type customer name or garage..."
-                      value={customerSearch}
-                      onChange={(e) => {
-                        setCustomerSearch(e.target.value);
-                        setCustomerId(''); // Clear selected ID
-                        setShowCustomerSuggestions(true);
-                        setActiveCustomerSuggestionIndex(0);
-                      }}
-                      onFocus={() => setShowCustomerSuggestions(true)}
-                      onBlur={() => {
-                        // Delay to permit option selection click
-                        setTimeout(() => setShowCustomerSuggestions(false), 200);
-                      }}
-                      onKeyDown={handleCustomerKeyDown}
-                    />
+                    <div className={styles.lookupInputWrapper}>
+                      <FiSearch className={styles.lookupIcon} />
+                      <input
+                        ref={customerInputRef}
+                        required
+                        type="text"
+                        className={styles.inputLookup}
+                        placeholder="Type customer name or garage..."
+                        value={customerSearch}
+                        onChange={(e) => {
+                          setCustomerSearch(e.target.value);
+                          setCustomerId(''); // Clear selected ID
+                          setShowCustomerSuggestions(true);
+                          setActiveCustomerSuggestionIndex(0);
+                        }}
+                        onFocus={() => setShowCustomerSuggestions(true)}
+                        onBlur={() => {
+                          // Delay to permit option selection click
+                          setTimeout(() => setShowCustomerSuggestions(false), 200);
+                        }}
+                        onKeyDown={handleCustomerKeyDown}
+                      />
+                    </div>
                     {showCustomerSuggestions && (
                       <ul className={styles.suggestionsList}>
                         {filteredCustomersList.map((c, idx) => (
@@ -461,24 +464,27 @@ function SalesOrders() {
                         <tr key={index}>
                           <td>
                             <div className={styles.autocompleteContainer}>
-                              <input
-                                ref={el => partInputRefs.current[index] = el}
-                                required
-                                type="text"
-                                className={styles.input}
-                                placeholder="Type part SKU or name..."
-                                value={item.partSearchQuery}
-                                onChange={(e) => handlePartSearchChange(index, e.target.value)}
-                                onFocus={() => {
-                                  setItems(items.map((it, i) => i === index ? { ...it, showSuggestions: true } : it));
-                                }}
-                                onBlur={() => {
-                                  setTimeout(() => {
-                                    setItems(items => items.map((it, i) => i === index ? { ...it, showSuggestions: false } : it));
-                                  }, 200);
-                                }}
-                                onKeyDown={(e) => handlePartSearchKeyDown(index, e)}
-                              />
+                              <div className={styles.lookupInputWrapper}>
+                                <FiSearch className={styles.lookupIcon} />
+                                <input
+                                  ref={el => partInputRefs.current[index] = el}
+                                  required
+                                  type="text"
+                                  className={styles.inputLookup}
+                                  placeholder="Type part SKU or name..."
+                                  value={item.partSearchQuery}
+                                  onChange={(e) => handlePartSearchChange(index, e.target.value)}
+                                  onFocus={() => {
+                                    setItems(items.map((it, i) => i === index ? { ...it, showSuggestions: true } : it));
+                                  }}
+                                  onBlur={() => {
+                                    setTimeout(() => {
+                                      setItems(items => items.map((it, i) => i === index ? { ...it, showSuggestions: false } : it));
+                                    }, 200);
+                                  }}
+                                  onKeyDown={(e) => handlePartSearchKeyDown(index, e)}
+                                />
+                              </div>
                               {item.showSuggestions && item.partSearchQuery && (
                                 <ul className={styles.suggestionsList}>
                                   {filteredPartsList.map((p, idx) => (

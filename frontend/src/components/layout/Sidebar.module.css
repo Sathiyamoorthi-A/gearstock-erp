@@ -183,3 +183,23 @@
   font-size: 11px;
   color: var(--text-muted);
 }
+
+.logoutBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.logoutBtn:hover {
+  color: var(--status-returned);
+  background: rgba(239, 68, 68, 0.08);
+}
+

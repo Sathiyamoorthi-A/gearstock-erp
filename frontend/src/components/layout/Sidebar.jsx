@@ -9,7 +9,7 @@ import {
   HiChartBar,
   HiUsers,
 } from 'react-icons/hi2';
-import { FiSettings } from 'react-icons/fi';
+import { FiSettings, FiLogOut } from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
 import styles from './Sidebar.module.css';
 
@@ -31,7 +31,7 @@ const systemNavItems = [
 ];
 
 function Sidebar() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const getInitials = (name) => {
     if (!name) return 'GS';
@@ -96,6 +96,13 @@ function Sidebar() {
             {user?.department || 'Inventory Dept'}
           </div>
         </div>
+        <button 
+          onClick={logout} 
+          className={styles.logoutBtn} 
+          title="Logout"
+        >
+          <FiLogOut />
+        </button>
       </div>
     </aside>
   );

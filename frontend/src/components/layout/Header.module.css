@@ -126,3 +126,117 @@
 .headerAvatar:hover {
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
+
+/* Notifications Dropdown Styling */
+.notificationWrapper {
+  position: relative;
+}
+
+.notifDropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 330px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  margin-top: 12px;
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(12px);
+  z-index: 1000;
+  animation: slideUp 0.25s ease-out;
+  text-align: left;
+}
+
+.notifHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.notifHeader h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.notifCount {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--accent-glow);
+  color: var(--accent-primary);
+}
+
+.notifList {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.notifItem {
+  display: flex;
+  gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background var(--transition-fast);
+  cursor: pointer;
+}
+
+.notifItem:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.notifDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.notifContent {
+  flex: 1;
+}
+
+.notifText {
+  font-size: 12px;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.notifTime {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.notifUserSection {
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.02);
+  border-top: 1px solid var(--border-color);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+.notifUserTitle {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.notifUserDetail {
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.notifUserDept {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}

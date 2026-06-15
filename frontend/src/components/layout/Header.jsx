@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { FiSearch, FiBell } from 'react-icons/fi';
 import { format } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
@@ -20,12 +20,14 @@ const pageTitles = {
 
 function Header() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const title = pageTitles[location.pathname] || 'Dashboard';
   const today = format(new Date(), 'EEEE, dd MMM yyyy');
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const notifRef = useRef(null);
 
   useEffect(() => {
     const loadNotifications = async () => {
@@ -44,7 +46,8 @@ function Header() {
             list.push({
               text: `Low Stock: ${p.sku} (${p.name}) has only ${p.quantity} left.`,
               time: 'System Alert',
-              color: '#ef4444'
+              color: '#ef4444',
+              path: '/inventory'
             });
           });
         }
@@ -57,7 +60,8 @@ function Header() {
             list.push({
               text: `Order ${orderNum} is currently ${o.status}.`,
               time: o.orderType === 'SALES' ? 'Sales Order' : 'Purchase Order',
-              color: o.orderType === 'SALES' ? '#10b981' : '#3b82f6'
+              color: o.orderType === 'SALES' ? '#10b981' : '#3b82f6',
+              path: o.orderType === 'SALES' ? '/sales-orders' : '/purchase-orders'
             });
           });
         }
@@ -66,14 +70,26 @@ function Header() {
       } catch (err) {
         console.warn('Failed to load notifications from APIs, using fallback static alerts', err);
         setNotifications([
-          { text: 'Mahle Oil Filter is below reorder level (3 left).', time: 'System Alert', color: '#ef4444' },
-          { text: 'New Sales Order #ORD-9841 created.', time: 'Sales Order', color: '#10b981' },
-          { text: 'Supplier Bosch India Pvt Ltd registered.', time: 'System Alert', color: '#3b82f6' }
+          { text: 'Mahle Oil Filter is below reorder level (3 left).', time: 'System Alert', color: '#ef4444', path: '/inventory' },
+          { text: 'New Sales Order #ORD-9841 created.', time: 'Sales Order', color: '#10b981', path: '/sales-orders' },
+          { text: 'Supplier Bosch India Pvt Ltd registered.', time: 'System Alert', color: '#3b82f6', path: '/suppliers' }
         ]);
       }
     };
     loadNotifications();
   }, [location.pathname]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notifRef.current && !notifRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const getInitials = (name) => {
     if (!name) return 'GS';
@@ -97,7 +113,7 @@ function Header() {
       </div>
 
       <div className={styles.actions}>
-        <div className={styles.notificationWrapper}>
+        <div className={styles.notificationWrapper} ref={notifRef}>
           <button 
             className={styles.iconBtn} 
             onClick={() => setIsDropdownOpen(!isDropdownOpen)} 
@@ -115,7 +131,14 @@ function Header() {
               </div>
               <div className={styles.notifList}>
                 {notifications.map((n, idx) => (
-                  <div key={idx} className={styles.notifItem} onClick={() => setIsDropdownOpen(false)}>
+                  <div 
+                    key={idx} 
+                    className={styles.notifItem} 
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      if (n.path) navigate(n.path);
+                    }}
+                  >
                     <div className={styles.notifDot} style={{ background: n.color }} />
                     <div className={styles.notifContent}>
                       <div className={styles.notifText}>{n.text}</div>

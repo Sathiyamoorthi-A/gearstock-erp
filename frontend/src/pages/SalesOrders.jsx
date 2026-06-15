@@ -246,6 +246,11 @@ function SalesOrders() {
       e.preventDefault();
       handleAddItemRow();
     }
+    // Ctrl + Enter to submit form
+    if (e.ctrlKey && e.key === 'Enter') {
+      e.preventDefault();
+      handleSubmit(e);
+    }
   };
 
   // Grand Total Calculation

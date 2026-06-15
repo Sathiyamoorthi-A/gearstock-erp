@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FiPlus, FiTrash2 } from 'react-icons/fi';
 import { HiShoppingCart } from 'react-icons/hi2';
 import { getAllOrders, createOrder, updateOrderStatus } from '../api/orders';
@@ -24,8 +24,16 @@ function SalesOrders() {
 
   // New Sale Form State
   const [customerId, setCustomerId] = useState('');
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+  const [activeCustomerSuggestionIndex, setActiveCustomerSuggestionIndex] = useState(0);
+
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState([]);
+
+  // Refs for keyboard navigation and focus management
+  const customerInputRef = useRef(null);
+  const partInputRefs = useRef([]);
 
   // Toast feedback
   const [toast, setToast] = useState(null);
@@ -63,9 +71,6 @@ function SalesOrders() {
       ]);
       setCustomersList(customersData || []);
       setPartsList(partsData || []);
-      if (customersData && customersData.length > 0) {
-        setCustomerId(customersData[0].id);
-      }
     } catch (err) {
       console.warn('Error loading sales order dependencies', err);
     }
@@ -88,49 +93,142 @@ function SalesOrders() {
 
   const handleOpenModal = () => {
     setNotes('');
-    if (customersList.length > 0) {
-      setCustomerId(customersList[0].id);
-    }
-    // Pre-fill with one empty item row
-    if (partsList.length > 0) {
-      setItems([{
-        partId: partsList[0].id,
-        quantity: 1,
-        unitPrice: partsList[0].price || 0
-      }]);
-    } else {
-      setItems([]);
-    }
+    setCustomerId('');
+    setCustomerSearch('');
+    setShowCustomerSuggestions(false);
+    setActiveCustomerSuggestionIndex(0);
+    // Initialize with one empty line row
+    setItems([{
+      partId: '',
+      quantity: 1,
+      unitPrice: 0,
+      partSearchQuery: '',
+      showSuggestions: false,
+      activeSuggestionIndex: 0
+    }]);
     setIsModalOpen(true);
+    // Focus the customer lookup input on modal load
+    setTimeout(() => {
+      if (customerInputRef.current) {
+        customerInputRef.current.focus();
+      }
+    }, 100);
   };
 
   const handleAddItemRow = () => {
-    if (partsList.length === 0) {
-      showToast('No parts available to add', 'error');
-      return;
-    }
-    setItems([
-      ...items,
+    setItems(prev => [
+      ...prev,
       {
-        partId: partsList[0].id,
+        partId: '',
         quantity: 1,
-        unitPrice: partsList[0].price || 0
+        unitPrice: 0,
+        partSearchQuery: '',
+        showSuggestions: false,
+        activeSuggestionIndex: 0
       }
     ]);
+    // Focus the new line's lookup field
+    setTimeout(() => {
+      const newIndex = items.length;
+      if (partInputRefs.current[newIndex]) {
+        partInputRefs.current[newIndex].focus();
+      }
+    }, 50);
   };
 
   const handleRemoveItemRow = (index) => {
     setItems(items.filter((_, i) => i !== index));
   };
 
-  const handleItemPartChange = (index, selectedPartId) => {
-    const partObj = partsList.find(p => p.id === Number(selectedPartId));
-    if (!partObj) return;
+  // Autocomplete filter helpers
+  const getFilteredCustomers = () => {
+    if (!customerSearch) return customersList;
+    const q = customerSearch.toLowerCase();
+    return customersList.filter(c => c.name.toLowerCase().includes(q) || (c.company && c.company.toLowerCase().includes(q)));
+  };
 
+  const getFilteredParts = (query) => {
+    if (!query) return [];
+    const q = query.toLowerCase();
+    return partsList.filter(p => p.sku.toLowerCase().includes(q) || p.name.toLowerCase().includes(q));
+  };
+
+  // Customers Keydown logic
+  const handleCustomerKeyDown = (e) => {
+    const filtered = getFilteredCustomers();
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveCustomerSuggestionIndex(prev => 
+        prev < filtered.length - 1 ? prev + 1 : prev
+      );
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveCustomerSuggestionIndex(prev => 
+        prev > 0 ? prev - 1 : prev
+      );
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filtered[activeCustomerSuggestionIndex]) {
+        const selected = filtered[activeCustomerSuggestionIndex];
+        setCustomerId(selected.id);
+        setCustomerSearch(selected.name);
+        setShowCustomerSuggestions(false);
+      }
+    } else if (e.key === 'Escape') {
+      setShowCustomerSuggestions(false);
+    }
+  };
+
+  // Parts Keyboard Handlers
+  const handlePartSearchChange = (index, value) => {
     setItems(items.map((it, i) => i === index ? {
       ...it,
-      partId: partObj.id,
-      unitPrice: partObj.price || 0
+      partSearchQuery: value,
+      partId: '', // Reset if user changes selection
+      unitPrice: 0,
+      showSuggestions: true,
+      activeSuggestionIndex: 0
+    } : it));
+  };
+
+  const handlePartSearchKeyDown = (index, e) => {
+    const item = items[index];
+    const filtered = getFilteredParts(item.partSearchQuery);
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setItems(items.map((it, i) => i === index ? {
+        ...it,
+        activeSuggestionIndex: it.activeSuggestionIndex < filtered.length - 1 
+          ? it.activeSuggestionIndex + 1 
+          : it.activeSuggestionIndex
+      } : it));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setItems(items.map((it, i) => i === index ? {
+        ...it,
+        activeSuggestionIndex: it.activeSuggestionIndex > 0 
+          ? it.activeSuggestionIndex - 1 
+          : it.activeSuggestionIndex
+      } : it));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filtered[item.activeSuggestionIndex]) {
+        const selected = filtered[item.activeSuggestionIndex];
+        handleSelectPart(index, selected);
+      }
+    } else if (e.key === 'Escape') {
+      setItems(items.map((it, i) => i === index ? { ...it, showSuggestions: false } : it));
+    }
+  };
+
+  const handleSelectPart = (index, part) => {
+    setItems(items.map((it, i) => i === index ? {
+      ...it,
+      partId: part.id,
+      partSearchQuery: `${part.sku} — ${part.name}`,
+      unitPrice: part.price || 0, // Sales: prefill selling price
+      showSuggestions: false
     } : it));
   };
 
@@ -141,17 +239,31 @@ function SalesOrders() {
     } : it));
   };
 
+  // Global hotkeys inside the modal
+  const handleModalKeyDown = (e) => {
+    // Alt + A to add part line
+    if (e.altKey && e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      handleAddItemRow();
+    }
+  };
+
   // Grand Total Calculation
   const grandTotal = items.reduce((sum, it) => sum + (it.quantity * it.unitPrice), 0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (items.length === 0) {
-      showToast('Please add at least one part to the order', 'error');
+    if (!customerId) {
+      showToast('Please select a valid customer from suggestions list', 'error');
+      return;
+    }
+    const invalidItems = items.filter(it => !it.partId);
+    if (invalidItems.length > 0) {
+      showToast('Please select a valid part SKU/name for all rows', 'error');
       return;
     }
 
-    // Verify stock levels before selling (optional but nice)
+    // Verify stock levels before selling
     let insStock = true;
     items.forEach(it => {
       const partObj = partsList.find(p => p.id === Number(it.partId));
@@ -187,6 +299,8 @@ function SalesOrders() {
   };
 
   const formatAmount = (amount) => '₹' + Number(amount).toLocaleString('en-IN');
+
+  const filteredCustomersList = getFilteredCustomers();
 
   return (
     <div className={styles.page}>
@@ -254,7 +368,7 @@ function SalesOrders() {
       </div>
 
       {isModalOpen && (
-        <div className={styles.modalOverlay}>
+        <div className={styles.modalOverlay} onKeyDown={handleModalKeyDown}>
           <div className={styles.modal}>
             <div className={styles.modalHeader}>
               <h3 className={styles.modalTitle}>Create Sales Order</h3>
@@ -264,17 +378,50 @@ function SalesOrders() {
             <form onSubmit={handleSubmit}>
               <div className={styles.formGrid}>
                 <div className={styles.formGroup}>
-                  <label className={styles.label}>Select Customer</label>
-                  <select
-                    required
-                    className={styles.select}
-                    value={customerId}
-                    onChange={(e) => setCustomerId(e.target.value)}
-                  >
-                    {customersList.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} ({c.type})</option>
-                    ))}
-                  </select>
+                  <label className={styles.label}>Customer Lookup</label>
+                  <div className={styles.autocompleteContainer}>
+                    <input
+                      ref={customerInputRef}
+                      required
+                      type="text"
+                      className={styles.input}
+                      placeholder="Type customer name or garage..."
+                      value={customerSearch}
+                      onChange={(e) => {
+                        setCustomerSearch(e.target.value);
+                        setCustomerId(''); // Clear selected ID
+                        setShowCustomerSuggestions(true);
+                        setActiveCustomerSuggestionIndex(0);
+                      }}
+                      onFocus={() => setShowCustomerSuggestions(true)}
+                      onBlur={() => {
+                        // Delay to permit option selection click
+                        setTimeout(() => setShowCustomerSuggestions(false), 200);
+                      }}
+                      onKeyDown={handleCustomerKeyDown}
+                    />
+                    {showCustomerSuggestions && (
+                      <ul className={styles.suggestionsList}>
+                        {filteredCustomersList.map((c, idx) => (
+                          <li
+                            key={c.id}
+                            className={`${styles.suggestionItem} ${idx === activeCustomerSuggestionIndex ? styles.suggestionItemActive : ''}`}
+                            onMouseDown={() => {
+                              setCustomerId(c.id);
+                              setCustomerSearch(c.name);
+                              setShowCustomerSuggestions(false);
+                            }}
+                          >
+                            <div className={styles.suggestionName}>{c.name}</div>
+                            <div className={styles.suggestionSub}>{c.company || 'Individual'} — {c.phone}</div>
+                          </li>
+                        ))}
+                        {filteredCustomersList.length === 0 && (
+                          <li className={styles.suggestionNoMatch}>No customers found</li>
+                        )}
+                      </ul>
+                    )}
+                  </div>
                 </div>
 
                 <div className={styles.formGroup}>
@@ -292,69 +439,105 @@ function SalesOrders() {
               <div className={styles.itemsSection}>
                 <div className={styles.sectionHeader}>
                   <h4 className={styles.label}>Parts / Order Items</h4>
-                  <button type="button" className={styles.addItemBtn} onClick={handleAddItemRow}>
-                    <FiPlus size={14} /> Add Part
+                  <button type="button" className={styles.addItemBtn} onClick={handleAddItemRow} title="Shortcut: Alt + A">
+                    <FiPlus size={14} /> Add Part <span style={{ fontSize: '10px', opacity: 0.7, marginLeft: '4px' }}>(Alt + A)</span>
                   </button>
                 </div>
 
                 <table className={styles.itemsTable}>
                   <thead>
                     <tr>
-                      <th style={{ width: '40%' }}>Part SKU / Name</th>
+                      <th style={{ width: '45%' }}>Part SKU / Name Lookup</th>
                       <th style={{ width: '20%' }}>Unit Price (₹)</th>
                       <th style={{ width: '15%' }}>Quantity</th>
-                      <th style={{ width: '20%' }}>Subtotal</th>
+                      <th style={{ width: '15%' }}>Subtotal</th>
                       <th style={{ width: '5%' }}></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map((item, index) => (
-                      <tr key={index}>
-                        <td>
-                          <select
-                            className={styles.select}
-                            value={item.partId}
-                            onChange={(e) => handleItemPartChange(index, e.target.value)}
-                          >
-                            {partsList.map(p => (
-                              <option key={p.id} value={p.id}>{p.sku} — {p.name} (Stock: {p.quantity})</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td>
-                          <input
-                            required
-                            min="0"
-                            className={styles.input}
-                            type="number"
-                            value={item.unitPrice}
-                            onChange={(e) => handleItemFieldChange(index, 'unitPrice', e.target.value)}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            required
-                            min="1"
-                            className={styles.input}
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) => handleItemFieldChange(index, 'quantity', e.target.value)}
-                          />
-                        </td>
-                        <td style={{ fontWeight: 600, paddingLeft: '8px' }}>
-                          {formatAmount(item.quantity * item.unitPrice)}
-                        </td>
-                        <td>
-                          <button
-                            type="button"
-                            className={styles.removeBtn}
-                            onClick={() => handleRemoveItemRow(index)}
-                          >
-                            <FiTrash2 size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {items.map((item, index) => {
+                      const filteredPartsList = getFilteredParts(item.partSearchQuery);
+                      return (
+                        <tr key={index}>
+                          <td>
+                            <div className={styles.autocompleteContainer}>
+                              <input
+                                ref={el => partInputRefs.current[index] = el}
+                                required
+                                type="text"
+                                className={styles.input}
+                                placeholder="Type part SKU or name..."
+                                value={item.partSearchQuery}
+                                onChange={(e) => handlePartSearchChange(index, e.target.value)}
+                                onFocus={() => {
+                                  setItems(items.map((it, i) => i === index ? { ...it, showSuggestions: true } : it));
+                                }}
+                                onBlur={() => {
+                                  setTimeout(() => {
+                                    setItems(items => items.map((it, i) => i === index ? { ...it, showSuggestions: false } : it));
+                                  }, 200);
+                                }}
+                                onKeyDown={(e) => handlePartSearchKeyDown(index, e)}
+                              />
+                              {item.showSuggestions && item.partSearchQuery && (
+                                <ul className={styles.suggestionsList}>
+                                  {filteredPartsList.map((p, idx) => (
+                                    <li
+                                      key={p.id}
+                                      className={`${styles.suggestionItem} ${idx === item.activeSuggestionIndex ? styles.suggestionItemActive : ''}`}
+                                      onMouseDown={() => handleSelectPart(index, p)}
+                                    >
+                                      <div className={styles.suggestionTitle}>
+                                        <span className={styles.skuBadge}>{p.sku}</span> {p.name}
+                                      </div>
+                                      <div className={styles.suggestionMeta}>
+                                        Price: ₹{p.price} | Stock: {p.quantity} | Cat: {p.categoryName}
+                                      </div>
+                                    </li>
+                                  ))}
+                                  {filteredPartsList.length === 0 && (
+                                    <li className={styles.suggestionNoMatch}>No parts found</li>
+                                  )}
+                                </ul>
+                              )}
+                            </div>
+                          </td>
+                          <td>
+                            <input
+                              required
+                              min="0"
+                              className={styles.input}
+                              type="number"
+                              value={item.unitPrice}
+                              onChange={(e) => handleItemFieldChange(index, 'unitPrice', e.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              required
+                              min="1"
+                              className={styles.input}
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => handleItemFieldChange(index, 'quantity', e.target.value)}
+                            />
+                          </td>
+                          <td style={{ fontWeight: 600, paddingLeft: '8px' }}>
+                            {formatAmount(item.quantity * item.unitPrice)}
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              className={styles.removeBtn}
+                              onClick={() => handleRemoveItemRow(index)}
+                              tabIndex={-1}
+                            >
+                              <FiTrash2 size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
 

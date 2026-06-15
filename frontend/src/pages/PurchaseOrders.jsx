@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FiPlus, FiTrash2 } from 'react-icons/fi';
 import { HiClipboardDocumentList } from 'react-icons/hi2';
 import { getAllOrders, createOrder, updateOrderStatus } from '../api/orders';
@@ -22,8 +22,16 @@ function PurchaseOrders() {
 
   // New PO Form State
   const [supplierId, setSupplierId] = useState('');
+  const [supplierSearch, setSupplierSearch] = useState('');
+  const [showSupplierSuggestions, setShowSupplierSuggestions] = useState(false);
+  const [activeSupplierSuggestionIndex, setActiveSupplierSuggestionIndex] = useState(0);
+
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState([]);
+
+  // Refs for keyboard navigation and focus management
+  const supplierInputRef = useRef(null);
+  const partInputRefs = useRef([]);
 
   // Toast feedback
   const [toast, setToast] = useState(null);
@@ -61,9 +69,6 @@ function PurchaseOrders() {
       ]);
       setSuppliersList(suppliersData || []);
       setPartsList(partsData || []);
-      if (suppliersData && suppliersData.length > 0) {
-        setSupplierId(suppliersData[0].id);
-      }
     } catch (err) {
       console.warn('Error loading purchase order dependencies', err);
     }
@@ -86,49 +91,142 @@ function PurchaseOrders() {
 
   const handleOpenModal = () => {
     setNotes('');
-    if (suppliersList.length > 0) {
-      setSupplierId(suppliersList[0].id);
-    }
-    // Pre-fill with one empty item row
-    if (partsList.length > 0) {
-      setItems([{
-        partId: partsList[0].id,
-        quantity: 1,
-        unitPrice: partsList[0].price || 0
-      }]);
-    } else {
-      setItems([]);
-    }
+    setSupplierId('');
+    setSupplierSearch('');
+    setShowSupplierSuggestions(false);
+    setActiveSupplierSuggestionIndex(0);
+    // Initialize with one empty line row
+    setItems([{
+      partId: '',
+      quantity: 1,
+      unitPrice: 0,
+      partSearchQuery: '',
+      showSuggestions: false,
+      activeSuggestionIndex: 0
+    }]);
     setIsModalOpen(true);
+    // Auto focus the supplier lookup input on opening
+    setTimeout(() => {
+      if (supplierInputRef.current) {
+        supplierInputRef.current.focus();
+      }
+    }, 100);
   };
 
   const handleAddItemRow = () => {
-    if (partsList.length === 0) {
-      showToast('No parts available to add', 'error');
-      return;
-    }
-    setItems([
-      ...items,
+    setItems(prev => [
+      ...prev,
       {
-        partId: partsList[0].id,
+        partId: '',
         quantity: 1,
-        unitPrice: partsList[0].price || 0
+        unitPrice: 0,
+        partSearchQuery: '',
+        showSuggestions: false,
+        activeSuggestionIndex: 0
       }
     ]);
+    // Focus the new line's input
+    setTimeout(() => {
+      const newIndex = items.length; // items.length evaluates to current length before set state merges
+      if (partInputRefs.current[newIndex]) {
+        partInputRefs.current[newIndex].focus();
+      }
+    }, 50);
   };
 
   const handleRemoveItemRow = (index) => {
     setItems(items.filter((_, i) => i !== index));
   };
 
-  const handleItemPartChange = (index, selectedPartId) => {
-    const partObj = partsList.find(p => p.id === Number(selectedPartId));
-    if (!partObj) return;
+  // Autocomplete filter helpers
+  const getFilteredSuppliers = () => {
+    if (!supplierSearch) return suppliersList;
+    const q = supplierSearch.toLowerCase();
+    return suppliersList.filter(s => s.name.toLowerCase().includes(q));
+  };
 
+  const getFilteredParts = (query) => {
+    if (!query) return [];
+    const q = query.toLowerCase();
+    return partsList.filter(p => p.sku.toLowerCase().includes(q) || p.name.toLowerCase().includes(q));
+  };
+
+  // Suppliers Keydown logic
+  const handleSupplierKeyDown = (e) => {
+    const filtered = getFilteredSuppliers();
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveSupplierSuggestionIndex(prev => 
+        prev < filtered.length - 1 ? prev + 1 : prev
+      );
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveSupplierSuggestionIndex(prev => 
+        prev > 0 ? prev - 1 : prev
+      );
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filtered[activeSupplierSuggestionIndex]) {
+        const selected = filtered[activeSupplierSuggestionIndex];
+        setSupplierId(selected.id);
+        setSupplierSearch(selected.name);
+        setShowSupplierSuggestions(false);
+      }
+    } else if (e.key === 'Escape') {
+      setShowSupplierSuggestions(false);
+    }
+  };
+
+  // Parts Keyboard Handlers
+  const handlePartSearchChange = (index, value) => {
     setItems(items.map((it, i) => i === index ? {
       ...it,
-      partId: partObj.id,
-      unitPrice: partObj.price || 0
+      partSearchQuery: value,
+      partId: '', // Reset if user changes selection
+      unitPrice: 0,
+      showSuggestions: true,
+      activeSuggestionIndex: 0
+    } : it));
+  };
+
+  const handlePartSearchKeyDown = (index, e) => {
+    const item = items[index];
+    const filtered = getFilteredParts(item.partSearchQuery);
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setItems(items.map((it, i) => i === index ? {
+        ...it,
+        activeSuggestionIndex: it.activeSuggestionIndex < filtered.length - 1 
+          ? it.activeSuggestionIndex + 1 
+          : it.activeSuggestionIndex
+      } : it));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setItems(items.map((it, i) => i === index ? {
+        ...it,
+        activeSuggestionIndex: it.activeSuggestionIndex > 0 
+          ? it.activeSuggestionIndex - 1 
+          : it.activeSuggestionIndex
+      } : it));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filtered[item.activeSuggestionIndex]) {
+        const selected = filtered[item.activeSuggestionIndex];
+        handleSelectPart(index, selected);
+      }
+    } else if (e.key === 'Escape') {
+      setItems(items.map((it, i) => i === index ? { ...it, showSuggestions: false } : it));
+    }
+  };
+
+  const handleSelectPart = (index, part) => {
+    setItems(items.map((it, i) => i === index ? {
+      ...it,
+      partId: part.id,
+      partSearchQuery: `${part.sku} — ${part.name}`,
+      unitPrice: part.costPrice || part.price || 0, // PO: prefill cost price
+      showSuggestions: false
     } : it));
   };
 
@@ -139,13 +237,27 @@ function PurchaseOrders() {
     } : it));
   };
 
+  // Global hotkeys inside the modal
+  const handleModalKeyDown = (e) => {
+    // Alt + A to add part line
+    if (e.altKey && e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      handleAddItemRow();
+    }
+  };
+
   // Grand Total Calculation
   const grandTotal = items.reduce((sum, it) => sum + (it.quantity * it.unitPrice), 0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (items.length === 0) {
-      showToast('Please add at least one part to the order', 'error');
+    if (!supplierId) {
+      showToast('Please select a valid supplier from suggestions list', 'error');
+      return;
+    }
+    const invalidItems = items.filter(it => !it.partId);
+    if (invalidItems.length > 0) {
+      showToast('Please select a valid part SKU/name for all rows', 'error');
       return;
     }
 
@@ -173,6 +285,8 @@ function PurchaseOrders() {
   };
 
   const formatAmount = (amount) => '₹' + Number(amount).toLocaleString('en-IN');
+
+  const filteredSuppliersList = getFilteredSuppliers();
 
   return (
     <div className={styles.page}>
@@ -239,7 +353,7 @@ function PurchaseOrders() {
       </div>
 
       {isModalOpen && (
-        <div className={styles.modalOverlay}>
+        <div className={styles.modalOverlay} onKeyDown={handleModalKeyDown}>
           <div className={styles.modal}>
             <div className={styles.modalHeader}>
               <h3 className={styles.modalTitle}>Create Purchase Order</h3>
@@ -249,17 +363,50 @@ function PurchaseOrders() {
             <form onSubmit={handleSubmit}>
               <div className={styles.formGrid}>
                 <div className={styles.formGroup}>
-                  <label className={styles.label}>Select Supplier</label>
-                  <select
-                    required
-                    className={styles.select}
-                    value={supplierId}
-                    onChange={(e) => setSupplierId(e.target.value)}
-                  >
-                    {suppliersList.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
+                  <label className={styles.label}>Supplier Lookup</label>
+                  <div className={styles.autocompleteContainer}>
+                    <input
+                      ref={supplierInputRef}
+                      required
+                      type="text"
+                      className={styles.input}
+                      placeholder="Type supplier name..."
+                      value={supplierSearch}
+                      onChange={(e) => {
+                        setSupplierSearch(e.target.value);
+                        setSupplierId(''); // Clear selected ID
+                        setShowSupplierSuggestions(true);
+                        setActiveSupplierSuggestionIndex(0);
+                      }}
+                      onFocus={() => setShowSupplierSuggestions(true)}
+                      onBlur={() => {
+                        // Delay to permit option selection click
+                        setTimeout(() => setShowSupplierSuggestions(false), 200);
+                      }}
+                      onKeyDown={handleSupplierKeyDown}
+                    />
+                    {showSupplierSuggestions && (
+                      <ul className={styles.suggestionsList}>
+                        {filteredSuppliersList.map((s, idx) => (
+                          <li
+                            key={s.id}
+                            className={`${styles.suggestionItem} ${idx === activeSupplierSuggestionIndex ? styles.suggestionItemActive : ''}`}
+                            onMouseDown={() => {
+                              setSupplierId(s.id);
+                              setSupplierSearch(s.name);
+                              setShowSupplierSuggestions(false);
+                            }}
+                          >
+                            <div className={styles.suggestionName}>{s.name}</div>
+                            <div className={styles.suggestionSub}>{s.contactPerson || 'N/A'} — {s.phone || 'N/A'}</div>
+                          </li>
+                        ))}
+                        {filteredSuppliersList.length === 0 && (
+                          <li className={styles.suggestionNoMatch}>No suppliers found</li>
+                        )}
+                      </ul>
+                    )}
+                  </div>
                 </div>
 
                 <div className={styles.formGroup}>
@@ -277,69 +424,105 @@ function PurchaseOrders() {
               <div className={styles.itemsSection}>
                 <div className={styles.sectionHeader}>
                   <h4 className={styles.label}>Parts / Order Items</h4>
-                  <button type="button" className={styles.addItemBtn} onClick={handleAddItemRow}>
-                    <FiPlus size={14} /> Add Part
+                  <button type="button" className={styles.addItemBtn} onClick={handleAddItemRow} title="Shortcut: Alt + A">
+                    <FiPlus size={14} /> Add Part <span style={{ fontSize: '10px', opacity: 0.7, marginLeft: '4px' }}>(Alt + A)</span>
                   </button>
                 </div>
 
                 <table className={styles.itemsTable}>
                   <thead>
                     <tr>
-                      <th style={{ width: '40%' }}>Part SKU / Name</th>
+                      <th style={{ width: '45%' }}>Part SKU / Name Lookup</th>
                       <th style={{ width: '20%' }}>Unit Cost (₹)</th>
                       <th style={{ width: '15%' }}>Quantity</th>
-                      <th style={{ width: '20%' }}>Subtotal</th>
+                      <th style={{ width: '15%' }}>Subtotal</th>
                       <th style={{ width: '5%' }}></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map((item, index) => (
-                      <tr key={index}>
-                        <td>
-                          <select
-                            className={styles.select}
-                            value={item.partId}
-                            onChange={(e) => handleItemPartChange(index, e.target.value)}
-                          >
-                            {partsList.map(p => (
-                              <option key={p.id} value={p.id}>{p.sku} — {p.name}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td>
-                          <input
-                            required
-                            min="0"
-                            className={styles.input}
-                            type="number"
-                            value={item.unitPrice}
-                            onChange={(e) => handleItemFieldChange(index, 'unitPrice', e.target.value)}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            required
-                            min="1"
-                            className={styles.input}
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) => handleItemFieldChange(index, 'quantity', e.target.value)}
-                          />
-                        </td>
-                        <td style={{ fontWeight: 600, paddingLeft: '8px' }}>
-                          {formatAmount(item.quantity * item.unitPrice)}
-                        </td>
-                        <td>
-                          <button
-                            type="button"
-                            className={styles.removeBtn}
-                            onClick={() => handleRemoveItemRow(index)}
-                          >
-                            <FiTrash2 size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {items.map((item, index) => {
+                      const filteredPartsList = getFilteredParts(item.partSearchQuery);
+                      return (
+                        <tr key={index}>
+                          <td>
+                            <div className={styles.autocompleteContainer}>
+                              <input
+                                ref={el => partInputRefs.current[index] = el}
+                                required
+                                type="text"
+                                className={styles.input}
+                                placeholder="Type part SKU or name..."
+                                value={item.partSearchQuery}
+                                onChange={(e) => handlePartSearchChange(index, e.target.value)}
+                                onFocus={() => {
+                                  setItems(items.map((it, i) => i === index ? { ...it, showSuggestions: true } : it));
+                                }}
+                                onBlur={() => {
+                                  setTimeout(() => {
+                                    setItems(items => items.map((it, i) => i === index ? { ...it, showSuggestions: false } : it));
+                                  }, 200);
+                                }}
+                                onKeyDown={(e) => handlePartSearchKeyDown(index, e)}
+                              />
+                              {item.showSuggestions && item.partSearchQuery && (
+                                <ul className={styles.suggestionsList}>
+                                  {filteredPartsList.map((p, idx) => (
+                                    <li
+                                      key={p.id}
+                                      className={`${styles.suggestionItem} ${idx === item.activeSuggestionIndex ? styles.suggestionItemActive : ''}`}
+                                      onMouseDown={() => handleSelectPart(index, p)}
+                                    >
+                                      <div className={styles.suggestionTitle}>
+                                        <span className={styles.skuBadge}>{p.sku}</span> {p.name}
+                                      </div>
+                                      <div className={styles.suggestionMeta}>
+                                        Cost: ₹{p.costPrice || p.price} | Stock: {p.quantity} | Cat: {p.categoryName}
+                                      </div>
+                                    </li>
+                                  ))}
+                                  {filteredPartsList.length === 0 && (
+                                    <li className={styles.suggestionNoMatch}>No parts found</li>
+                                  )}
+                                </ul>
+                              )}
+                            </div>
+                          </td>
+                          <td>
+                            <input
+                              required
+                              min="0"
+                              className={styles.input}
+                              type="number"
+                              value={item.unitPrice}
+                              onChange={(e) => handleItemFieldChange(index, 'unitPrice', e.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              required
+                              min="1"
+                              className={styles.input}
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => handleItemFieldChange(index, 'quantity', e.target.value)}
+                            />
+                          </td>
+                          <td style={{ fontWeight: 600, paddingLeft: '8px' }}>
+                            {formatAmount(item.quantity * item.unitPrice)}
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              className={styles.removeBtn}
+                              onClick={() => handleRemoveItemRow(index)}
+                              tabIndex={-1}
+                            >
+                              <FiTrash2 size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
 

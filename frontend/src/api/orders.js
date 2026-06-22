@@ -1,5 +1,5 @@
 import api from './axios';
-import { getLocalOrders, saveLocalOrder, updateLocalOrderStatus } from './localStorageFallback';
+import { getLocalOrders, saveLocalOrder, updateLocalOrderStatus, updateLocalOrder } from './localStorageFallback';
 
 export const getAllOrders = async (type = '') => {
   try {
@@ -47,5 +47,15 @@ export const updateOrderStatus = async (id, status) => {
   } catch (err) {
     console.warn(`Backend order status update for ID ${id} failed, using localStorage fallback`, err);
     return updateLocalOrderStatus(id, status);
+  }
+};
+
+export const updateOrder = async (id, data) => {
+  try {
+    const response = await api.put(`/orders/${id}`, data);
+    return response.data;
+  } catch (err) {
+    console.warn(`Backend order update for ID ${id} failed, using localStorage fallback`, err);
+    return updateLocalOrder(id, data);
   }
 };

@@ -426,6 +426,75 @@ export const updateLocalOrderStatus = (id, status) => {
   return updated;
 };
 
+export const updateLocalOrder = (id, orderData) => {
+  initLocalDb();
+  let list = JSON.parse(localStorage.getItem('local_orders') || '[]');
+  const parts = getLocalParts();
+  let updated = null;
+
+  list = list.map(o => {
+    if (o.id === Number(id) || o.id === id) {
+      // 1. Reverse old stock adjustments for SALES orders
+      if (o.orderType === 'SALES' && o.status === 'PENDING') {
+        o.items.forEach(oldItem => {
+          const part = parts.find(p => p.id === oldItem.part?.id);
+          if (part) {
+            part.quantity += oldItem.quantity; // Restore old deducted stock
+            updateLocalPart(part.id, part);
+          }
+        });
+      }
+
+      // 2. Build new items array
+      const freshParts = getLocalParts(); // Re-read after restoring
+      const newItems = orderData.items.map((item, idx) => {
+        const itemPartId = item.partId || (item.part && item.part.id);
+        const part = freshParts.find(p => p.id === Number(itemPartId) || p.id === itemPartId);
+
+        // 3. Apply new stock deductions for SALES orders
+        if (part && o.orderType === 'SALES' && (orderData.status || o.status) === 'PENDING') {
+          part.quantity = Math.max(0, part.quantity - item.quantity);
+          updateLocalPart(part.id, part);
+        }
+
+        return {
+          id: idx + 1,
+          part: part || oldItem?.part || { name: 'Unknown Part', sku: 'N/A', price: item.unitPrice },
+          quantity: item.quantity,
+          unitPrice: item.unitPrice
+        };
+      });
+
+      // 4. Resolve customer/supplier
+      let customerObj = o.customer;
+      let supplierObj = o.supplier;
+      if (o.orderType === 'SALES' && orderData.customer) {
+        const custId = orderData.customer.id;
+        customerObj = getLocalCustomers().find(c => c.id === Number(custId) || c.id === custId) || o.customer;
+      } else if (o.orderType === 'PURCHASE' && orderData.supplier) {
+        const supId = orderData.supplier.id;
+        supplierObj = getLocalSuppliers().find(s => s.id === Number(supId) || s.id === supId) || o.supplier;
+      }
+
+      updated = {
+        ...o,
+        customer: customerObj,
+        supplier: supplierObj,
+        notes: orderData.notes !== undefined ? orderData.notes : o.notes,
+        status: orderData.status || o.status,
+        totalAmount: orderData.totalAmount || newItems.reduce((sum, it) => sum + (it.quantity * it.unitPrice), 0),
+        items: newItems,
+        updatedAt: new Date().toISOString()
+      };
+      return updated;
+    }
+    return o;
+  });
+
+  localStorage.setItem('local_orders', JSON.stringify(list));
+  return updated;
+};
+
 // Dashboard aggregations calculated from local storage!
 export const getLocalDashboardStats = () => {
   const parts = getLocalParts();

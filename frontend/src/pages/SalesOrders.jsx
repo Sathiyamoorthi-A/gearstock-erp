@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { FiPlus, FiTrash2, FiSearch } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiSearch, FiEdit2, FiXCircle } from 'react-icons/fi';
 import { HiShoppingCart } from 'react-icons/hi2';
-import { getAllOrders, createOrder, updateOrderStatus } from '../api/orders';
+import { getAllOrders, createOrder, updateOrderStatus, updateOrder, getOrderById } from '../api/orders';
 import { getAllCustomers } from '../api/customers';
 import { getAllParts } from '../api/inventory';
 import styles from './SalesOrders.module.css';
@@ -21,6 +21,7 @@ function SalesOrders() {
   const [customersList, setCustomersList] = useState([]);
   const [partsList, setPartsList] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingOrder, setEditingOrder] = useState(null); // null = create mode, object = edit mode
 
   // New Sale Form State
   const [customerId, setCustomerId] = useState('');
@@ -51,10 +52,13 @@ function SalesOrders() {
           id: item.orderNumber || `#SO-${item.id}`,
           realId: item.id,
           customer: item.customer ? item.customer.name : 'N/A',
+          customerId: item.customer ? item.customer.id : null,
           items: item.items ? item.items.length : 0,
+          rawItems: item.items || [],
           total: item.totalAmount || 0,
           date: item.createdAt ? item.createdAt.substring(0, 10) : 'N/A',
-          status: item.status
+          status: item.status,
+          notes: item.notes || ''
         }));
         setOrders(mapped);
       }
@@ -92,6 +96,7 @@ function SalesOrders() {
   };
 
   const handleOpenModal = () => {
+    setEditingOrder(null);
     setNotes('');
     setCustomerId('');
     setCustomerSearch('');
@@ -107,13 +112,58 @@ function SalesOrders() {
       activeSuggestionIndex: 0
     }]);
     setIsModalOpen(true);
-    // Focus the customer lookup input on modal load
     setTimeout(() => {
       if (customerInputRef.current) {
         customerInputRef.current.focus();
       }
     }, 100);
   };
+
+  const handleEditOrder = async (order) => {
+    try {
+      const fullOrder = await getOrderById(order.realId);
+      if (!fullOrder) {
+        showToast('Could not load order details', 'error');
+        return;
+      }
+      setEditingOrder(fullOrder);
+      setNotes(fullOrder.notes || '');
+      setCustomerId(fullOrder.customer ? fullOrder.customer.id : '');
+      setCustomerSearch(fullOrder.customer ? fullOrder.customer.name : '');
+      setShowCustomerSuggestions(false);
+      setActiveCustomerSuggestionIndex(0);
+
+      const loadedItems = (fullOrder.items || []).map(it => ({
+        partId: it.part ? it.part.id : '',
+        quantity: it.quantity,
+        unitPrice: it.unitPrice,
+        partSearchQuery: it.part ? `${it.part.sku} — ${it.part.name}` : '',
+        showSuggestions: false,
+        activeSuggestionIndex: 0
+      }));
+      setItems(loadedItems.length > 0 ? loadedItems : [{
+        partId: '', quantity: 1, unitPrice: 0, partSearchQuery: '', showSuggestions: false, activeSuggestionIndex: 0
+      }]);
+      setIsModalOpen(true);
+    } catch (err) {
+      showToast('Failed to load order for editing', 'error');
+    }
+  };
+
+  const handleCancelOrder = async (orderId) => {
+    try {
+      await updateOrderStatus(orderId, 'CANCELLED');
+      showToast('Order cancelled successfully');
+      setIsModalOpen(false);
+      setEditingOrder(null);
+      fetchOrders();
+    } catch (err) {
+      showToast('Failed to cancel order', 'error');
+    }
+  };
+
+  const isEditable = editingOrder ? editingOrder.status === 'PENDING' : true;
+  const canCancel = editingOrder && ['PENDING', 'PROCESSING'].includes(editingOrder.status);
 
   const handleAddItemRow = () => {
     setItems(prev => [
@@ -258,6 +308,7 @@ function SalesOrders() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!isEditable) return;
     if (!customerId) {
       showToast('Please select a valid customer from suggestions list', 'error');
       return;
@@ -267,18 +318,6 @@ function SalesOrders() {
       showToast('Please select a valid part SKU/name for all rows', 'error');
       return;
     }
-
-    // Verify stock levels before selling
-    let insStock = true;
-    items.forEach(it => {
-      const partObj = partsList.find(p => p.id === Number(it.partId));
-      if (partObj && partObj.quantity < it.quantity) {
-        insStock = false;
-        showToast(`Insufficient stock for ${partObj.name}. Available: ${partObj.quantity}`, 'error');
-      }
-    });
-
-    if (!insStock) return;
 
     const payload = {
       orderType: 'SALES',
@@ -294,12 +333,28 @@ function SalesOrders() {
     };
 
     try {
-      await createOrder(payload);
-      showToast('Sales Order created successfully');
+      if (editingOrder) {
+        await updateOrder(editingOrder.id, payload);
+        showToast('Sales Order updated successfully');
+      } else {
+        // Verify stock levels before selling (only for new orders)
+        let insStock = true;
+        items.forEach(it => {
+          const partObj = partsList.find(p => p.id === Number(it.partId));
+          if (partObj && partObj.quantity < it.quantity) {
+            insStock = false;
+            showToast(`Insufficient stock for ${partObj.name}. Available: ${partObj.quantity}`, 'error');
+          }
+        });
+        if (!insStock) return;
+        await createOrder(payload);
+        showToast('Sales Order created successfully');
+      }
       setIsModalOpen(false);
+      setEditingOrder(null);
       fetchOrders();
     } catch (err) {
-      showToast('Failed to create sales order', 'error');
+      showToast(editingOrder ? 'Failed to update sales order' : 'Failed to create sales order', 'error');
     }
   };
 
@@ -335,7 +390,8 @@ function SalesOrders() {
                 <th>Items Count</th>
                 <th>Total Value</th>
                 <th>Order Date</th>
-                <th>Update Status</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -347,18 +403,41 @@ function SalesOrders() {
                   <td className={styles.amount}>{formatAmount(order.total)}</td>
                   <td className={styles.date}>{order.date}</td>
                   <td>
-                    <select
-                      className={`${styles.badge} ${statusMap[order.status] || styles.badgePending}`}
-                      value={order.status}
-                      onChange={(e) => handleStatusChange(order.realId || order.id, e.target.value)}
-                    >
-                      <option value="PENDING">PENDING</option>
-                      <option value="PROCESSING">PROCESSING</option>
-                      <option value="SHIPPED">SHIPPED</option>
-                      <option value="DELIVERED">DELIVERED</option>
-                      <option value="RETURNED">RETURNED</option>
-                      <option value="CANCELLED">CANCELLED</option>
-                    </select>
+                    <span className={`${styles.statusBadge} ${statusMap[order.status] || styles.badgePending}`}>
+                      {order.status}
+                    </span>
+                  </td>
+                  <td>
+                    <div className={styles.actionBtns}>
+                      <button
+                        className={styles.editBtn}
+                        onClick={() => handleEditOrder(order)}
+                        title={order.status === 'PENDING' ? 'Edit Order' : 'View Order'}
+                      >
+                        <FiEdit2 size={14} />
+                      </button>
+                      {['PENDING', 'PROCESSING'].includes(order.status) && (
+                        <button
+                          className={styles.cancelOrderBtn}
+                          onClick={() => handleCancelOrder(order.realId)}
+                          title="Cancel Order"
+                        >
+                          <FiXCircle size={14} />
+                        </button>
+                      )}
+                      <select
+                        className={styles.statusSelect}
+                        value={order.status}
+                        onChange={(e) => handleStatusChange(order.realId || order.id, e.target.value)}
+                      >
+                        <option value="PENDING">PENDING</option>
+                        <option value="PROCESSING">PROCESSING</option>
+                        <option value="SHIPPED">SHIPPED</option>
+                        <option value="DELIVERED">DELIVERED</option>
+                        <option value="RETURNED">RETURNED</option>
+                        <option value="CANCELLED">CANCELLED</option>
+                      </select>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -376,8 +455,11 @@ function SalesOrders() {
         <div className={styles.modalOverlay} onKeyDown={handleModalKeyDown}>
           <div className={styles.modal}>
             <div className={styles.modalHeader}>
-              <h3 className={styles.modalTitle}>Create Sales Order</h3>
-              <button className={styles.closeBtn} onClick={() => setIsModalOpen(false)}>×</button>
+              <h3 className={styles.modalTitle}>
+                {editingOrder ? `Edit Sales Order ${editingOrder.orderNumber || '#SO-' + editingOrder.id}` : 'Create Sales Order'}
+                {editingOrder && !isEditable && <span className={styles.readOnlyBadge}>Read Only</span>}
+              </h3>
+              <button className={styles.closeBtn} onClick={() => { setIsModalOpen(false); setEditingOrder(null); }}>×</button>
             </div>
 
             <form onSubmit={handleSubmit}>
@@ -391,6 +473,7 @@ function SalesOrders() {
                         ref={customerInputRef}
                         required
                         type="text"
+                        disabled={!isEditable}
                         className={styles.inputLookup}
                         placeholder="Type customer name or garage..."
                         value={customerSearch}
@@ -400,7 +483,7 @@ function SalesOrders() {
                           setShowCustomerSuggestions(true);
                           setActiveCustomerSuggestionIndex(0);
                         }}
-                        onFocus={() => setShowCustomerSuggestions(true)}
+                        onFocus={() => isEditable && setShowCustomerSuggestions(true)}
                         onBlur={() => {
                           // Delay to permit option selection click
                           setTimeout(() => setShowCustomerSuggestions(false), 200);
@@ -408,7 +491,7 @@ function SalesOrders() {
                         onKeyDown={handleCustomerKeyDown}
                       />
                     </div>
-                    {showCustomerSuggestions && (
+                    {isEditable && showCustomerSuggestions && (
                       <ul className={styles.suggestionsList}>
                         {filteredCustomersList.map((c, idx) => (
                           <li
@@ -437,6 +520,7 @@ function SalesOrders() {
                   <input
                     className={styles.input}
                     type="text"
+                    disabled={!isEditable}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="e.g. Standard garage delivery, COD"
@@ -447,9 +531,11 @@ function SalesOrders() {
               <div className={styles.itemsSection}>
                 <div className={styles.sectionHeader}>
                   <h4 className={styles.label}>Parts / Order Items</h4>
-                  <button type="button" className={styles.addItemBtn} onClick={handleAddItemRow} title="Shortcut: Alt + A">
-                    <FiPlus size={14} /> Add Part <span style={{ fontSize: '10px', opacity: 0.7, marginLeft: '4px' }}>(Alt + A)</span>
-                  </button>
+                  {isEditable && (
+                    <button type="button" className={styles.addItemBtn} onClick={handleAddItemRow} title="Shortcut: Alt + A">
+                      <FiPlus size={14} /> Add Part <span style={{ fontSize: '10px', opacity: 0.7, marginLeft: '4px' }}>(Alt + A)</span>
+                    </button>
+                  )}
                 </div>
 
                 <table className={styles.itemsTable}>
@@ -475,12 +561,15 @@ function SalesOrders() {
                                   ref={el => partInputRefs.current[index] = el}
                                   required
                                   type="text"
+                                  disabled={!isEditable}
                                   className={styles.inputLookup}
                                   placeholder="Type part SKU or name..."
                                   value={item.partSearchQuery}
                                   onChange={(e) => handlePartSearchChange(index, e.target.value)}
                                   onFocus={() => {
-                                    setItems(items.map((it, i) => i === index ? { ...it, showSuggestions: true } : it));
+                                    if (isEditable) {
+                                      setItems(items.map((it, i) => i === index ? { ...it, showSuggestions: true } : it));
+                                    }
                                   }}
                                   onBlur={() => {
                                     setTimeout(() => {
@@ -490,7 +579,7 @@ function SalesOrders() {
                                   onKeyDown={(e) => handlePartSearchKeyDown(index, e)}
                                 />
                               </div>
-                              {item.showSuggestions && item.partSearchQuery && (
+                              {isEditable && item.showSuggestions && item.partSearchQuery && (
                                 <ul className={styles.suggestionsList}>
                                   {filteredPartsList.map((p, idx) => (
                                     <li
@@ -517,6 +606,7 @@ function SalesOrders() {
                             <input
                               required
                               min="0"
+                              disabled={!isEditable}
                               className={styles.input}
                               type="number"
                               value={item.unitPrice}
@@ -527,6 +617,7 @@ function SalesOrders() {
                             <input
                               required
                               min="1"
+                              disabled={!isEditable}
                               className={styles.input}
                               type="number"
                               value={item.quantity}
@@ -537,14 +628,16 @@ function SalesOrders() {
                             {formatAmount(item.quantity * item.unitPrice)}
                           </td>
                           <td>
-                            <button
-                              type="button"
-                              className={styles.removeBtn}
-                              onClick={() => handleRemoveItemRow(index)}
-                              tabIndex={-1}
-                            >
-                              <FiTrash2 size={14} />
-                            </button>
+                            {isEditable && (
+                              <button
+                                type="button"
+                                className={styles.removeBtn}
+                                onClick={() => handleRemoveItemRow(index)}
+                                tabIndex={-1}
+                              >
+                                <FiTrash2 size={14} />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -559,12 +652,20 @@ function SalesOrders() {
               </div>
 
               <div className={styles.modalFooter}>
-                <button type="button" className={styles.cancelBtn} onClick={() => setIsModalOpen(false)}>
-                  Cancel
+                {canCancel && (
+                  <button type="button" className={styles.cancelOrderBtnModal} onClick={() => handleCancelOrder(editingOrder.id)}>
+                    <FiXCircle size={14} /> Cancel Order
+                  </button>
+                )}
+                <div style={{ flex: 1 }} />
+                <button type="button" className={styles.cancelBtn} onClick={() => { setIsModalOpen(false); setEditingOrder(null); }}>
+                  {editingOrder ? 'Close' : 'Cancel'}
                 </button>
-                <button type="submit" className={styles.submitBtn}>
-                  Save Sales Order
-                </button>
+                {isEditable && (
+                  <button type="submit" className={styles.submitBtn}>
+                    {editingOrder ? 'Update Order' : 'Save Sales Order'}
+                  </button>
+                )}
               </div>
             </form>
           </div>

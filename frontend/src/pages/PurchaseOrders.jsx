@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { FiPlus, FiTrash2, FiSearch } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiSearch, FiEdit2, FiXCircle } from 'react-icons/fi';
 import { HiClipboardDocumentList } from 'react-icons/hi2';
-import { getAllOrders, createOrder, updateOrderStatus } from '../api/orders';
+import { getAllOrders, createOrder, updateOrderStatus, updateOrder, getOrderById } from '../api/orders';
 import { getAllSuppliers } from '../api/suppliers';
 import { getAllParts } from '../api/inventory';
 import styles from './PurchaseOrders.module.css';
@@ -19,6 +19,7 @@ function PurchaseOrders() {
   const [suppliersList, setSuppliersList] = useState([]);
   const [partsList, setPartsList] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingOrder, setEditingOrder] = useState(null);
 
   // New PO Form State
   const [supplierId, setSupplierId] = useState('');
@@ -49,10 +50,13 @@ function PurchaseOrders() {
           id: item.orderNumber || `#PO-${item.id}`,
           realId: item.id,
           supplier: item.supplier ? item.supplier.name : 'N/A',
+          supplierId: item.supplier ? item.supplier.id : null,
           items: item.items ? item.items.length : 0,
+          rawItems: item.items || [],
           total: item.totalAmount || 0,
           date: item.createdAt ? item.createdAt.substring(0, 10) : 'N/A',
-          status: item.status
+          status: item.status,
+          notes: item.notes || ''
         }));
         setOrders(mapped);
       }
@@ -90,12 +94,12 @@ function PurchaseOrders() {
   };
 
   const handleOpenModal = () => {
+    setEditingOrder(null);
     setNotes('');
     setSupplierId('');
     setSupplierSearch('');
     setShowSupplierSuggestions(false);
     setActiveSupplierSuggestionIndex(0);
-    // Initialize with one empty line row
     setItems([{
       partId: '',
       quantity: 1,
@@ -105,13 +109,58 @@ function PurchaseOrders() {
       activeSuggestionIndex: 0
     }]);
     setIsModalOpen(true);
-    // Auto focus the supplier lookup input on opening
     setTimeout(() => {
       if (supplierInputRef.current) {
         supplierInputRef.current.focus();
       }
     }, 100);
   };
+
+  const handleEditOrder = async (order) => {
+    try {
+      const fullOrder = await getOrderById(order.realId);
+      if (!fullOrder) {
+        showToast('Could not load order details', 'error');
+        return;
+      }
+      setEditingOrder(fullOrder);
+      setNotes(fullOrder.notes || '');
+      setSupplierId(fullOrder.supplier ? fullOrder.supplier.id : '');
+      setSupplierSearch(fullOrder.supplier ? fullOrder.supplier.name : '');
+      setShowSupplierSuggestions(false);
+      setActiveSupplierSuggestionIndex(0);
+
+      const loadedItems = (fullOrder.items || []).map(it => ({
+        partId: it.part ? it.part.id : '',
+        quantity: it.quantity,
+        unitPrice: it.unitPrice,
+        partSearchQuery: it.part ? `${it.part.sku} — ${it.part.name}` : '',
+        showSuggestions: false,
+        activeSuggestionIndex: 0
+      }));
+      setItems(loadedItems.length > 0 ? loadedItems : [{
+        partId: '', quantity: 1, unitPrice: 0, partSearchQuery: '', showSuggestions: false, activeSuggestionIndex: 0
+      }]);
+      setIsModalOpen(true);
+    } catch (err) {
+      showToast('Failed to load order for editing', 'error');
+    }
+  };
+
+  const handleCancelOrder = async (orderId) => {
+    try {
+      await updateOrderStatus(orderId, 'CANCELLED');
+      showToast('Order cancelled successfully');
+      setIsModalOpen(false);
+      setEditingOrder(null);
+      fetchOrders();
+    } catch (err) {
+      showToast('Failed to cancel order', 'error');
+    }
+  };
+
+  const isEditable = editingOrder ? editingOrder.status === 'PENDING' : true;
+  const canCancel = editingOrder && ['PENDING', 'APPROVED'].includes(editingOrder.status);
 
   const handleAddItemRow = () => {
     setItems(prev => [
@@ -256,6 +305,7 @@ function PurchaseOrders() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!isEditable) return;
     if (!supplierId) {
       showToast('Please select a valid supplier from suggestions list', 'error');
       return;
@@ -280,12 +330,18 @@ function PurchaseOrders() {
     };
 
     try {
-      await createOrder(payload);
-      showToast('Purchase Order created successfully');
+      if (editingOrder) {
+        await updateOrder(editingOrder.id, payload);
+        showToast('Purchase Order updated successfully');
+      } else {
+        await createOrder(payload);
+        showToast('Purchase Order created successfully');
+      }
       setIsModalOpen(false);
+      setEditingOrder(null);
       fetchOrders();
     } catch (err) {
-      showToast('Failed to create purchase order', 'error');
+      showToast(editingOrder ? 'Failed to update purchase order' : 'Failed to create purchase order', 'error');
     }
   };
 
@@ -321,7 +377,8 @@ function PurchaseOrders() {
                 <th>Items Count</th>
                 <th>Total Value</th>
                 <th>Order Date</th>
-                <th>Update Status</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -333,17 +390,40 @@ function PurchaseOrders() {
                   <td className={styles.amount}>{formatAmount(order.total)}</td>
                   <td className={styles.date}>{order.date}</td>
                   <td>
-                    <select
-                      className={`${styles.badge} ${statusMap[order.status] || styles.badgePending}`}
-                      value={order.status}
-                      onChange={(e) => handleStatusChange(order.realId || order.id, e.target.value)}
-                    >
-                      <option value="PENDING">PENDING</option>
-                      <option value="APPROVED">APPROVED</option>
-                      <option value="IN_TRANSIT">IN TRANSIT</option>
-                      <option value="DELIVERED">DELIVERED</option>
-                      <option value="CANCELLED">CANCELLED</option>
-                    </select>
+                    <span className={`${styles.statusBadge} ${statusMap[order.status] || styles.badgePending}`}>
+                      {order.status}
+                    </span>
+                  </td>
+                  <td>
+                    <div className={styles.actionBtns}>
+                      <button
+                        className={styles.editBtn}
+                        onClick={() => handleEditOrder(order)}
+                        title={order.status === 'PENDING' ? 'Edit Order' : 'View Order'}
+                      >
+                        <FiEdit2 size={14} />
+                      </button>
+                      {['PENDING', 'APPROVED'].includes(order.status) && (
+                        <button
+                          className={styles.cancelOrderBtn}
+                          onClick={() => handleCancelOrder(order.realId)}
+                          title="Cancel Order"
+                        >
+                          <FiXCircle size={14} />
+                        </button>
+                      )}
+                      <select
+                        className={styles.statusSelect}
+                        value={order.status}
+                        onChange={(e) => handleStatusChange(order.realId || order.id, e.target.value)}
+                      >
+                        <option value="PENDING">PENDING</option>
+                        <option value="APPROVED">APPROVED</option>
+                        <option value="IN_TRANSIT">IN TRANSIT</option>
+                        <option value="DELIVERED">DELIVERED</option>
+                        <option value="CANCELLED">CANCELLED</option>
+                      </select>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -361,8 +441,11 @@ function PurchaseOrders() {
         <div className={styles.modalOverlay} onKeyDown={handleModalKeyDown}>
           <div className={styles.modal}>
             <div className={styles.modalHeader}>
-              <h3 className={styles.modalTitle}>Create Purchase Order</h3>
-              <button className={styles.closeBtn} onClick={() => setIsModalOpen(false)}>×</button>
+              <h3 className={styles.modalTitle}>
+                {editingOrder ? `Edit Purchase Order ${editingOrder.orderNumber || '#PO-' + editingOrder.id}` : 'Create Purchase Order'}
+                {editingOrder && !isEditable && <span className={styles.readOnlyBadge}>Read Only</span>}
+              </h3>
+              <button className={styles.closeBtn} onClick={() => { setIsModalOpen(false); setEditingOrder(null); }}>×</button>
             </div>
 
             <form onSubmit={handleSubmit}>
@@ -376,6 +459,7 @@ function PurchaseOrders() {
                         ref={supplierInputRef}
                         required
                         type="text"
+                        disabled={!isEditable}
                         className={styles.inputLookup}
                         placeholder="Type supplier name..."
                         value={supplierSearch}
@@ -385,7 +469,7 @@ function PurchaseOrders() {
                           setShowSupplierSuggestions(true);
                           setActiveSupplierSuggestionIndex(0);
                         }}
-                        onFocus={() => setShowSupplierSuggestions(true)}
+                        onFocus={() => isEditable && setShowSupplierSuggestions(true)}
                         onBlur={() => {
                           // Delay to permit option selection click
                           setTimeout(() => setShowSupplierSuggestions(false), 200);
@@ -393,7 +477,7 @@ function PurchaseOrders() {
                         onKeyDown={handleSupplierKeyDown}
                       />
                     </div>
-                    {showSupplierSuggestions && (
+                    {isEditable && showSupplierSuggestions && (
                       <ul className={styles.suggestionsList}>
                         {filteredSuppliersList.map((s, idx) => (
                           <li
@@ -422,6 +506,7 @@ function PurchaseOrders() {
                   <input
                     className={styles.input}
                     type="text"
+                    disabled={!isEditable}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="e.g. Restock electrical, urgent shipment"
@@ -432,9 +517,11 @@ function PurchaseOrders() {
               <div className={styles.itemsSection}>
                 <div className={styles.sectionHeader}>
                   <h4 className={styles.label}>Parts / Order Items</h4>
-                  <button type="button" className={styles.addItemBtn} onClick={handleAddItemRow} title="Shortcut: Alt + A">
-                    <FiPlus size={14} /> Add Part <span style={{ fontSize: '10px', opacity: 0.7, marginLeft: '4px' }}>(Alt + A)</span>
-                  </button>
+                  {isEditable && (
+                    <button type="button" className={styles.addItemBtn} onClick={handleAddItemRow} title="Shortcut: Alt + A">
+                      <FiPlus size={14} /> Add Part <span style={{ fontSize: '10px', opacity: 0.7, marginLeft: '4px' }}>(Alt + A)</span>
+                    </button>
+                  )}
                 </div>
 
                 <table className={styles.itemsTable}>
@@ -460,12 +547,15 @@ function PurchaseOrders() {
                                   ref={el => partInputRefs.current[index] = el}
                                   required
                                   type="text"
+                                  disabled={!isEditable}
                                   className={styles.inputLookup}
                                   placeholder="Type part SKU or name..."
                                   value={item.partSearchQuery}
                                   onChange={(e) => handlePartSearchChange(index, e.target.value)}
                                   onFocus={() => {
-                                    setItems(items.map((it, i) => i === index ? { ...it, showSuggestions: true } : it));
+                                    if (isEditable) {
+                                      setItems(items.map((it, i) => i === index ? { ...it, showSuggestions: true } : it));
+                                    }
                                   }}
                                   onBlur={() => {
                                     setTimeout(() => {
@@ -475,7 +565,7 @@ function PurchaseOrders() {
                                   onKeyDown={(e) => handlePartSearchKeyDown(index, e)}
                                 />
                               </div>
-                              {item.showSuggestions && item.partSearchQuery && (
+                              {isEditable && item.showSuggestions && item.partSearchQuery && (
                                 <ul className={styles.suggestionsList}>
                                   {filteredPartsList.map((p, idx) => (
                                     <li
@@ -502,6 +592,7 @@ function PurchaseOrders() {
                             <input
                               required
                               min="0"
+                              disabled={!isEditable}
                               className={styles.input}
                               type="number"
                               value={item.unitPrice}
@@ -512,6 +603,7 @@ function PurchaseOrders() {
                             <input
                               required
                               min="1"
+                              disabled={!isEditable}
                               className={styles.input}
                               type="number"
                               value={item.quantity}
@@ -522,14 +614,16 @@ function PurchaseOrders() {
                             {formatAmount(item.quantity * item.unitPrice)}
                           </td>
                           <td>
-                            <button
-                              type="button"
-                              className={styles.removeBtn}
-                              onClick={() => handleRemoveItemRow(index)}
-                              tabIndex={-1}
-                            >
-                              <FiTrash2 size={14} />
-                            </button>
+                            {isEditable && (
+                              <button
+                                type="button"
+                                className={styles.removeBtn}
+                                onClick={() => handleRemoveItemRow(index)}
+                                tabIndex={-1}
+                              >
+                                <FiTrash2 size={14} />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -544,12 +638,20 @@ function PurchaseOrders() {
               </div>
 
               <div className={styles.modalFooter}>
-                <button type="button" className={styles.cancelBtn} onClick={() => setIsModalOpen(false)}>
-                  Cancel
+                {canCancel && (
+                  <button type="button" className={styles.cancelOrderBtnModal} onClick={() => handleCancelOrder(editingOrder.id)}>
+                    <FiXCircle size={14} /> Cancel Order
+                  </button>
+                )}
+                <div style={{ flex: 1 }} />
+                <button type="button" className={styles.cancelBtn} onClick={() => { setIsModalOpen(false); setEditingOrder(null); }}>
+                  {editingOrder ? 'Close' : 'Cancel'}
                 </button>
-                <button type="submit" className={styles.submitBtn}>
-                  Save Purchase Order
-                </button>
+                {isEditable && (
+                  <button type="submit" className={styles.submitBtn}>
+                    {editingOrder ? 'Update Order' : 'Save Purchase Order'}
+                  </button>
+                )}
               </div>
             </form>
           </div>

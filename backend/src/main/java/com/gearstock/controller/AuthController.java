@@ -42,7 +42,8 @@ public class AuthController {
                 "fullName", user.getFullName(),
                 "email", user.getEmail() != null ? user.getEmail() : "",
                 "role", user.getRole().name(),
-                "department", user.getDepartment() != null ? user.getDepartment() : ""
+                "department", user.getDepartment() != null ? user.getDepartment() : "",
+                "allowedModules", user.getAllowedModules() != null ? user.getAllowedModules() : ""
         );
         return ResponseEntity.ok(userInfo);
     }

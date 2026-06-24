@@ -13,7 +13,7 @@ import java.util.List;
 
 @Component
 public class DataSeeder implements CommandLineRunner {
-    public DataSeeder(UserRepository userRepository, CategoryRepository categoryRepository, SupplierRepository supplierRepository, CustomerRepository customerRepository, PartRepository partRepository, OrderRepository orderRepository, PasswordEncoder passwordEncoder) {
+    public DataSeeder(UserRepository userRepository, CategoryRepository categoryRepository, SupplierRepository supplierRepository, CustomerRepository customerRepository, PartRepository partRepository, OrderRepository orderRepository, PasswordEncoder passwordEncoder, WarehouseRepository warehouseRepository, WarehouseStockRepository warehouseStockRepository, PaymentRepository paymentRepository, FeedbackRepository feedbackRepository) {
         this.userRepository = userRepository;
         this.categoryRepository = categoryRepository;
         this.supplierRepository = supplierRepository;
@@ -21,6 +21,10 @@ public class DataSeeder implements CommandLineRunner {
         this.partRepository = partRepository;
         this.orderRepository = orderRepository;
         this.passwordEncoder = passwordEncoder;
+        this.warehouseRepository = warehouseRepository;
+        this.warehouseStockRepository = warehouseStockRepository;
+        this.paymentRepository = paymentRepository;
+        this.feedbackRepository = feedbackRepository;
     }
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DataSeeder.class);
@@ -33,6 +37,11 @@ public class DataSeeder implements CommandLineRunner {
     private final PartRepository partRepository;
     private final OrderRepository orderRepository;
     private final PasswordEncoder passwordEncoder;
+    private final WarehouseRepository warehouseRepository;
+    private final WarehouseStockRepository warehouseStockRepository;
+    private final PaymentRepository paymentRepository;
+    private final FeedbackRepository feedbackRepository;
+
 
     @Override
     public void run(String... args) {
@@ -44,6 +53,10 @@ public class DataSeeder implements CommandLineRunner {
         List<Customer> customers = seedCustomers();
         List<Part> parts = seedParts(categories, suppliers);
         seedOrders(parts, customers, suppliers);
+        seedWarehouses(parts);
+        seedPayments();
+        seedFeedbacks(customers);
+
 
         log.info("=== Database Seeding Complete ===");
     }
@@ -398,4 +411,88 @@ public class DataSeeder implements CommandLineRunner {
 
         log.info("Seeded 14 orders with items");
     }
+
+    private void seedWarehouses(List<Part> parts) {
+        if (warehouseRepository.count() > 0) return;
+
+        Warehouse wh1 = Warehouse.builder()
+                .name("Main Warehouse - Mumbai")
+                .code("WH-MUM-01")
+                .address("Kurla Industrial Area, Mumbai")
+                .active(true)
+                .build();
+
+        Warehouse wh2 = Warehouse.builder()
+                .name("Delhi Regional Hub")
+                .code("WH-DEL-02")
+                .address("Okhla Phase 3, New Delhi")
+                .active(true)
+                .build();
+
+        warehouseRepository.saveAll(List.of(wh1, wh2));
+        log.info("Seeded 2 warehouses");
+
+        // Seed stock quantities in warehouses for first 10 parts
+        List<WarehouseStock> stocks = new ArrayList<>();
+        for (int i = 0; i < Math.min(10, parts.size()); i++) {
+            Part p = parts.get(i);
+            stocks.add(WarehouseStock.builder().part(p).warehouse(wh1).quantity(p.getQuantity() / 2).build());
+            stocks.add(WarehouseStock.builder().part(p).warehouse(wh2).quantity(p.getQuantity() - (p.getQuantity() / 2)).build());
+        }
+        warehouseStockRepository.saveAll(stocks);
+        log.info("Seeded warehouse stocks");
+    }
+
+    private void seedPayments() {
+        if (paymentRepository.count() > 0) return;
+
+        List<Order> orders = orderRepository.findAll();
+        List<Payment> payments = new ArrayList<>();
+        
+        String[] methods = {"CASH", "UPI", "CARD", "BANK_TRANSFER", "LENDING"};
+        int methodIdx = 0;
+
+        for (Order o : orders) {
+            if (!"CANCELLED".equalsIgnoreCase(o.getStatus()) && !"PENDING".equalsIgnoreCase(o.getStatus())) {
+                payments.add(Payment.builder()
+                        .order(o)
+                        .amount(o.getTotalAmount())
+                        .paymentMethod(methods[methodIdx % methods.length])
+                        .transactionId("TXN-" + System.currentTimeMillis() + "-" + o.getId())
+                        .paymentDate(o.getCreatedAt())
+                        .build());
+                methodIdx++;
+            }
+        }
+        paymentRepository.saveAll(payments);
+        log.info("Seeded {} payments", payments.size());
+    }
+
+    private void seedFeedbacks(List<Customer> customers) {
+        if (feedbackRepository.count() > 0) return;
+
+        List<Feedback> feedbacks = List.of(
+                Feedback.builder()
+                        .customer(customers.get(0))
+                        .rating(5)
+                        .comments("Superb service! Alternator delivered on time and works great.")
+                        .createdAt(LocalDateTime.now().minusDays(5))
+                        .build(),
+                Feedback.builder()
+                        .customer(customers.get(1))
+                        .rating(4)
+                        .comments("Brembo discs are top quality. Packaging could be slightly better.")
+                        .createdAt(LocalDateTime.now().minusDays(3))
+                        .build(),
+                Feedback.builder()
+                        .customer(customers.get(2))
+                        .rating(5)
+                        .comments("Always reliable. Very fast dispatch.")
+                        .createdAt(LocalDateTime.now().minusDays(1))
+                        .build()
+        );
+        feedbackRepository.saveAll(feedbacks);
+        log.info("Seeded 3 customer feedbacks");
+    }
 }
+

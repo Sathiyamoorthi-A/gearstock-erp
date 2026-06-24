@@ -33,9 +33,12 @@ public class User implements UserDetails {
 
     private String department;
 
+    private String allowedModules = "dashboard,inventory,purchase-orders,sales-orders,suppliers,customers,reports,settings,warehouses,crm";
+
     private boolean enabled = true;
 
     private LocalDateTime createdAt = LocalDateTime.now();
+
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -65,7 +68,7 @@ public class User implements UserDetails {
     public User() {
     }
 
-    public User(Long id, String username, String email, String password, String fullName, Role role, String department, boolean enabled, LocalDateTime createdAt) {
+    public User(Long id, String username, String email, String password, String fullName, Role role, String department, String allowedModules, boolean enabled, LocalDateTime createdAt) {
         this.id = id;
         this.username = username;
         this.email = email;
@@ -73,6 +76,7 @@ public class User implements UserDetails {
         this.fullName = fullName;
         this.role = role;
         this.department = department;
+        this.allowedModules = allowedModules;
         this.enabled = enabled;
         this.createdAt = createdAt;
     }
@@ -133,6 +137,13 @@ public class User implements UserDetails {
         this.department = department;
     }
 
+    public String getAllowedModules() {
+        return this.allowedModules;
+    }
+
+    public void setAllowedModules(String allowedModules) {
+        this.allowedModules = allowedModules;
+    }
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
@@ -158,6 +169,7 @@ public class User implements UserDetails {
         private String fullName;
         private Role role;
         private String department;
+        private String allowedModules;
         private boolean enabled;
         private LocalDateTime createdAt;
 
@@ -196,6 +208,11 @@ public class User implements UserDetails {
             return this;
         }
 
+        public UserBuilder allowedModules(String allowedModules) {
+            this.allowedModules = allowedModules;
+            return this;
+        }
+
         public UserBuilder enabled(boolean enabled) {
             this.enabled = enabled;
             return this;
@@ -207,7 +224,8 @@ public class User implements UserDetails {
         }
 
         public User build() {
-            return new User(this.id, this.username, this.email, this.password, this.fullName, this.role, this.department, this.enabled, this.createdAt);
+            String modules = this.allowedModules != null ? this.allowedModules : "dashboard,inventory,purchase-orders,sales-orders,suppliers,customers,reports,settings,warehouses,crm";
+            return new User(this.id, this.username, this.email, this.password, this.fullName, this.role, this.department, modules, this.enabled, this.createdAt);
         }
     }
 }

@@ -3,8 +3,8 @@ import api from './axios';
 export const login = async (username, password) => {
   try {
     const response = await api.post('/auth/login', { username, password });
-    const { token, username: resUsername, fullName, role, department } = response.data;
-    const user = { username: resUsername, fullName, role, department };
+    const { token, username: resUsername, fullName, role, department, allowedModules } = response.data;
+    const user = { username: resUsername, fullName, role, department, allowedModules };
     if (token) {
       localStorage.setItem('gearstock_token', token);
     }
@@ -20,7 +20,8 @@ export const login = async (username, password) => {
       username: username || 'admin',
       fullName: 'Ravi Kumar',
       role: 'ROLE_ADMIN',
-      department: 'Management'
+      department: 'Management',
+      allowedModules: 'dashboard,inventory,purchase-orders,sales-orders,suppliers,customers,reports,settings,warehouses,crm'
     };
     localStorage.setItem('gearstock_token', token);
     localStorage.setItem('gearstock_user', JSON.stringify(user));

@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FiSave } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
+import { getUsers, updateUserPermissions } from '../api/reports';
 import styles from './Settings.module.css';
+
 
 function Settings() {
   const { user, updateUser } = useAuth();
@@ -9,6 +11,51 @@ function Settings() {
   const [email, setEmail] = useState(user?.email || 'admin@gearstock.in');
   const [department, setDepartment] = useState(user?.department || 'Inventory');
   const [phone, setPhone] = useState(user?.phone || '+91 98765 00000');
+
+  // RBAC permissions state
+  const [users, setUsers] = useState([]);
+  const [userPermissions, setUserPermissions] = useState({});
+
+  useEffect(() => {
+    if (user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_WAREHOUSE_MGR') {
+      const loadUsers = async () => {
+        try {
+          const list = await getUsers();
+          setUsers(list);
+          const perms = {};
+          list.forEach(u => {
+            perms[u.id] = u.allowedModules ? u.allowedModules.split(',') : [];
+          });
+          setUserPermissions(perms);
+        } catch (err) {
+          console.error('Failed to load users', err);
+        }
+      };
+      loadUsers();
+    }
+  }, [user]);
+
+  const handlePermissionChange = (userId, moduleKey, checked) => {
+    setUserPermissions(prev => {
+      const current = prev[userId] || [];
+      const updated = checked
+        ? [...current, moduleKey]
+        : current.filter(m => m !== moduleKey);
+      return { ...prev, [userId]: updated };
+    });
+  };
+
+  const handleSavePermissions = async (userId) => {
+    try {
+      const allowed = userPermissions[userId] || [];
+      const commaSeparated = allowed.join(',');
+      await updateUserPermissions(userId, { allowedModules: commaSeparated });
+      showToast('User permissions updated successfully');
+    } catch (err) {
+      showToast('Failed to update permissions', 'error');
+    }
+  };
+
 
   const [emailNotifs, setEmailNotifs] = useState(true);
   const [lowStockNotifs, setLowStockNotifs] = useState(true);
@@ -220,6 +267,66 @@ function Settings() {
           </button>
         </div>
       </form>
+
+      {/* Role Access Control Section (Admins/Managers only) */}
+      {(user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_WAREHOUSE_MGR') && (
+        <div className={styles.section} style={{ animationDelay: '0.25s' }}>
+          <h3 className={styles.sectionTitle}>Employee Role & Module Access Controls</h3>
+          <p className={styles.sectionDesc}>Assign fine-grained access permissions to different parts of the ERP platform for each user.</p>
+
+          <div className={styles.fieldGroup}>
+            {users.map(u => (
+              <div key={u.id} className={styles.userRow}>
+                <div className={styles.userHeader}>
+                  <div className={styles.userMeta}>
+                    <span className={styles.userFullName}>{u.fullName || u.username}</span>
+                    <span className={styles.userUsername}>@{u.username}</span>
+                  </div>
+                  <span className={styles.userRoleBadge}>{u.role}</span>
+                </div>
+
+                <div className={styles.userPermsGrid}>
+                  {[
+                    { key: 'dashboard', label: 'Dashboard' },
+                    { key: 'inventory', label: 'Inventory' },
+                    { key: 'purchase-orders', label: 'Purchase Orders' },
+                    { key: 'sales-orders', label: 'Sales Orders' },
+                    { key: 'warehouses', label: 'Warehouses' },
+                    { key: 'suppliers', label: 'Suppliers' },
+                    { key: 'customers', label: 'Customers' },
+                    { key: 'reports', label: 'Reports' },
+                    { key: 'crm', label: 'CRM Feed' },
+                    { key: 'settings', label: 'Settings' }
+                  ].map(mod => (
+                    <label key={mod.key} className={styles.permCheckbox}>
+                      <input
+                        type="checkbox"
+                        checked={(userPermissions[u.id] || []).includes(mod.key)}
+                        onChange={(e) => handlePermissionChange(u.id, mod.key, e.target.checked)}
+                      />
+                      {mod.label}
+                    </label>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  className={styles.saveBtn}
+                  style={{ padding: '8px 16px', fontSize: '12px', marginTop: '0px' }}
+                  onClick={() => handleSavePermissions(u.id)}
+                >
+                  Save Permissions
+                </button>
+              </div>
+            ))}
+            {users.length === 0 && (
+              <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                No other users found.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Danger Zone */}
       <div className={`${styles.section} ${styles.dangerSection}`} style={{ animationDelay: '0.3s' }}>

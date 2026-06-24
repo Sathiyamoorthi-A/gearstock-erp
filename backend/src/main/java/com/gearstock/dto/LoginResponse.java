@@ -13,15 +13,18 @@ public class LoginResponse {
 
     private String department;
 
+    private String allowedModules;
+
     public LoginResponse() {
     }
 
-    public LoginResponse(String token, String username, String fullName, String role, String department) {
+    public LoginResponse(String token, String username, String fullName, String role, String department, String allowedModules) {
         this.token = token;
         this.username = username;
         this.fullName = fullName;
         this.role = role;
         this.department = department;
+        this.allowedModules = allowedModules;
     }
 
     public String getToken() {
@@ -64,6 +67,14 @@ public class LoginResponse {
         this.department = department;
     }
 
+    public String getAllowedModules() {
+        return this.allowedModules;
+    }
+
+    public void setAllowedModules(String allowedModules) {
+        this.allowedModules = allowedModules;
+    }
+
     public static LoginResponseBuilder builder() {
         return new LoginResponseBuilder();
     }
@@ -74,6 +85,7 @@ public class LoginResponse {
         private String fullName;
         private String role;
         private String department;
+        private String allowedModules;
 
         public LoginResponseBuilder token(String token) {
             this.token = token;
@@ -100,8 +112,13 @@ public class LoginResponse {
             return this;
         }
 
+        public LoginResponseBuilder allowedModules(String allowedModules) {
+            this.allowedModules = allowedModules;
+            return this;
+        }
+
         public LoginResponse build() {
-            return new LoginResponse(this.token, this.username, this.fullName, this.role, this.department);
+            return new LoginResponse(this.token, this.username, this.fullName, this.role, this.department, this.allowedModules);
         }
     }
 }

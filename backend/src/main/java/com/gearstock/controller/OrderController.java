@@ -41,4 +41,12 @@ public class OrderController {
         String status = body.get("status");
         return ResponseEntity.ok(orderService.updateOrderStatus(id, status));
     }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Order> updateOrder(
+            @PathVariable Long id,
+            @RequestBody Order order
+    ) {
+        return ResponseEntity.ok(orderService.updateOrder(id, order));
+    }
 }

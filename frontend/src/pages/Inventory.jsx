@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiSearch, FiPlus, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiEdit2, FiTrash2, FiCamera } from 'react-icons/fi';
 import { HiCube } from 'react-icons/hi2';
 import { getAllParts, createPart, updatePart, deletePart } from '../api/inventory';
 import api from '../api/axios';
@@ -17,6 +17,8 @@ function Inventory() {
   const [parts, setParts] = useState(sampleParts);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isScanModalOpen, setIsScanModalOpen] = useState(false);
+
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -228,10 +230,14 @@ function Inventory() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+          <button type="button" className={styles.scanBtn} onClick={() => setIsScanModalOpen(true)} title="Simulate Barcode / QR Scan">
+            <FiCamera size={14} /> Scan Barcode
+          </button>
           <button className={styles.addBtn} onClick={openAddModal}>
             <FiPlus size={16} />
             Add Part
           </button>
+
         </div>
       </div>
 
@@ -417,6 +423,52 @@ function Inventory() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Barcode/QR Scanner Mock Modal */}
+      {isScanModalOpen && (
+        <div className={styles.modalOverlay} onClick={() => setIsScanModalOpen(false)}>
+          <div className={styles.modal} style={{ maxWidth: 400 }} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h3 className={styles.modalTitle}>Simulate Barcode / QR Scanner</h3>
+              <button type="button" className={styles.closeBtn} onClick={() => setIsScanModalOpen(false)}>×</button>
+            </div>
+
+            <div className={styles.scannerContainer}>
+              <div className={styles.cameraFrame}>
+                <div className={styles.scannerLine} />
+                <span className={styles.cameraFeedText}>Camera Feed Active...</span>
+              </div>
+
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center', margin: '0' }}>
+                Select a product below to simulate scanning its barcode labels.
+              </p>
+
+              <div className={styles.presetsGrid}>
+                {parts.slice(0, 4).map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={styles.presetItem}
+                    onClick={() => {
+                      setSearch(p.sku);
+                      setIsScanModalOpen(false);
+                      showToast(`Scanned SKU: ${p.sku} successfully`);
+                    }}
+                  >
+                    <span className={styles.presetSku}>{p.sku}</span>
+                    <div className={styles.presetName}>{p.name}</div>
+                  </button>
+                ))}
+                {parts.length === 0 && (
+                  <div style={{ gridColumn: 'span 2', textAlign: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
+                    No inventory items available to scan.
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

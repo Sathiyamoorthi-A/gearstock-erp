@@ -4,8 +4,11 @@ import RevenueChart from '../components/dashboard/RevenueChart';
 import CategoryChart from '../components/dashboard/CategoryChart';
 import RecentOrders from '../components/dashboard/RecentOrders';
 import LowStockAlerts from '../components/dashboard/LowStockAlerts';
+import PaymentSummaryCard from '../components/dashboard/PaymentSummaryCard';
 import * as dashboardApi from '../api/dashboard';
+import { getDailyPaymentSummary } from '../api/reports';
 import styles from './Dashboard.module.css';
+
 
 /* ── Fallback sample data (used when backend is unavailable) ── */
 const sampleStats = [
@@ -57,19 +60,29 @@ function Dashboard() {
   const [categories, setCategories] = useState(sampleCategories);
   const [orders, setOrders] = useState(sampleOrders);
   const [alerts, setAlerts] = useState(sampleAlerts);
+  const [paymentSummary, setPaymentSummary] = useState({
+    cashTotal: 0,
+    upiTotal: 0,
+    cardTotal: 0,
+    bankTransferTotal: 0,
+    lendingTotal: 0,
+    overallTotal: 0
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [statsRes, revenueRes, catRes, ordersRes, alertsRes] = await Promise.allSettled([
+        const [statsRes, revenueRes, catRes, ordersRes, alertsRes, paymentRes] = await Promise.allSettled([
           dashboardApi.getStats(),
           dashboardApi.getRevenueChart(),
           dashboardApi.getCategoryDistribution(),
           dashboardApi.getRecentOrders(),
           dashboardApi.getLowStockAlerts(),
+          getDailyPaymentSummary()
         ]);
+
 
         if (statsRes.status === 'fulfilled' && statsRes.value) {
           const statsData = statsRes.value;
@@ -131,12 +144,16 @@ function Dashboard() {
           }));
           setAlerts(mappedAlerts);
         }
+        if (paymentRes.status === 'fulfilled' && paymentRes.value) {
+          setPaymentSummary(paymentRes.value);
+        }
       } catch {
         // Use sample data on error — already set as defaults
       } finally {
         setLoading(false);
       }
     };
+
 
     fetchData();
   }, []);
@@ -177,6 +194,7 @@ function Dashboard() {
       <div className={styles.bottomRow}>
         <RecentOrders orders={orders} />
         <LowStockAlerts alerts={alerts} />
+        <PaymentSummaryCard summary={paymentSummary} />
       </div>
     </div>
   );

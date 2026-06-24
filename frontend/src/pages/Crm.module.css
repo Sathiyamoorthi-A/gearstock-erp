@@ -1,0 +1,353 @@
+.page {
+  animation: fadeIn 0.4s ease-out;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--header-height) - 40px);
+}
+
+.pageHeader {
+  margin-bottom: 20px;
+}
+
+.pageTitle {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.pageSubtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.contentLayout {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 24px;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.leftPanel, .rightPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow: hidden;
+  height: 100%;
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+}
+
+.feedbackFormCard {
+  flex-shrink: 0;
+}
+
+.scrollContainer {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.cardTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cardTitleIcon {
+  color: var(--accent-primary);
+}
+
+/* Feedback Form Styles */
+.formGroup {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fullWidth {
+  grid-column: span 2;
+}
+
+.label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.input, .select, .textarea {
+  padding: 8px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+  transition: all var(--transition-normal);
+}
+
+.input:focus, .select:focus, .textarea:focus {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.textarea {
+  min-height: 60px;
+  resize: vertical;
+}
+
+.ratingField {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.starBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 2px;
+  transition: transform var(--transition-fast);
+}
+
+.starBtn:hover {
+  transform: scale(1.15);
+}
+
+.starActive {
+  color: var(--accent-primary);
+}
+
+.submitBtn {
+  align-self: flex-end;
+  padding: 8px 20px;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  color: #000;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: none;
+  transition: all var(--transition-normal);
+}
+
+.submitBtn:hover {
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.25);
+  transform: translateY(-1px);
+}
+
+/* Feedback List Styles */
+.feedbackList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.feedbackItem {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  transition: border-color var(--transition-normal);
+}
+
+.feedbackItem:hover {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.feedbackHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.customerName {
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--text-primary);
+}
+
+.feedbackDate {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.stars {
+  display: flex;
+  gap: 2px;
+  color: var(--accent-primary);
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.feedbackText {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Right Panel: Automation Logs Timeline */
+.timelineCard {
+  height: 100%;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  padding-left: 20px;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: var(--border-color);
+}
+
+.timelineItem {
+  position: relative;
+}
+
+.timelineDot {
+  position: absolute;
+  left: -20px;
+  top: 4px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--bg-primary);
+  border: 2px solid var(--border-color);
+  z-index: 1;
+}
+
+.timelineDotActive {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+}
+
+.logHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.logTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.logTime {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.logCustomer {
+  font-size: 11px;
+  color: var(--accent-primary);
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.logContent {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.logPart {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.logMeta {
+  display: flex;
+  gap: 16px;
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.smsBadge, .emailBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Toast styling */
+.toast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  padding: 12px 24px;
+  border-radius: var(--radius-sm);
+  z-index: 1100;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  animation: slideInRight 0.3s ease-out;
+}
+
+.toastSuccess {
+  background: var(--status-delivered);
+  color: #000;
+}
+
+.toastError {
+  background: var(--status-returned);
+  color: #fff;
+}
+
+.toastText {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

@@ -8,27 +8,33 @@ import {
   HiTruck,
   HiChartBar,
   HiUsers,
+  HiBuildingOffice2,
+  HiChatBubbleLeftRight,
 } from 'react-icons/hi2';
 import { FiSettings, FiLogOut } from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
 import styles from './Sidebar.module.css';
 
+
 const mainNavItems = [
-  { to: '/', icon: HiSquares2X2, label: 'Dashboard', end: true },
-  { to: '/inventory', icon: HiCube, label: 'Inventory' },
-  { to: '/purchase-orders', icon: HiClipboardDocumentList, label: 'Purchase Orders', badge: 12 },
-  { to: '/sales-orders', icon: HiShoppingCart, label: 'Sales Orders' },
+  { to: '/', icon: HiSquares2X2, label: 'Dashboard', end: true, module: 'dashboard' },
+  { to: '/inventory', icon: HiCube, label: 'Inventory', module: 'inventory' },
+  { to: '/purchase-orders', icon: HiClipboardDocumentList, label: 'Purchase Orders', badge: 12, module: 'purchase-orders' },
+  { to: '/sales-orders', icon: HiShoppingCart, label: 'Sales Orders', module: 'sales-orders' },
 ];
 
 const managementNavItems = [
-  { to: '/suppliers', icon: HiTruck, label: 'Suppliers' },
-  { to: '/reports', icon: HiChartBar, label: 'Reports' },
-  { to: '/customers', icon: HiUsers, label: 'Customers' },
+  { to: '/warehouses', icon: HiBuildingOffice2, label: 'Warehouses', module: 'warehouses' },
+  { to: '/suppliers', icon: HiTruck, label: 'Suppliers', module: 'suppliers' },
+  { to: '/reports', icon: HiChartBar, label: 'Reports', module: 'reports' },
+  { to: '/customers', icon: HiUsers, label: 'Customers', module: 'customers' },
+  { to: '/crm', icon: HiChatBubbleLeftRight, label: 'CRM Feed', module: 'crm' },
 ];
 
 const systemNavItems = [
-  { to: '/settings', icon: FiSettings, label: 'Settings' },
+  { to: '/settings', icon: FiSettings, label: 'Settings', module: 'settings' },
 ];
+
 
 function Sidebar() {
   const { user, logout } = useAuth();
@@ -61,6 +67,19 @@ function Sidebar() {
     );
   };
 
+  const allowed = user?.allowedModules ? user.allowedModules.split(',') : [];
+
+  const filterNavItems = (items) => {
+    return items.filter(item => {
+      if (!item.module) return true;
+      return allowed.includes(item.module);
+    });
+  };
+
+  const filteredMain = filterNavItems(mainNavItems);
+  const filteredManagement = filterNavItems(managementNavItems);
+  const filteredSystem = filterNavItems(systemNavItems);
+
   return (
     <aside className={styles.sidebar}>
       <div className={styles.logo}>
@@ -74,14 +93,26 @@ function Sidebar() {
       </div>
 
       <nav className={styles.nav}>
-        <span className={styles.sectionLabel}>Main</span>
-        {mainNavItems.map(renderNavItem)}
+        {filteredMain.length > 0 && (
+          <>
+            <span className={styles.sectionLabel}>Main</span>
+            {filteredMain.map(renderNavItem)}
+          </>
+        )}
 
-        <span className={styles.sectionLabel}>Management</span>
-        {managementNavItems.map(renderNavItem)}
+        {filteredManagement.length > 0 && (
+          <>
+            <span className={styles.sectionLabel}>Management</span>
+            {filteredManagement.map(renderNavItem)}
+          </>
+        )}
 
-        <span className={styles.sectionLabel}>System</span>
-        {systemNavItems.map(renderNavItem)}
+        {filteredSystem.length > 0 && (
+          <>
+            <span className={styles.sectionLabel}>System</span>
+            {filteredSystem.map(renderNavItem)}
+          </>
+        )}
       </nav>
 
       <div className={styles.userCard}>

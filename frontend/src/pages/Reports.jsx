@@ -9,7 +9,9 @@ import {
   HiDocumentChartBar,
 } from 'react-icons/hi2';
 import { getLocalParts, getLocalOrders, getLocalCustomers, getLocalSuppliers } from '../api/localStorageFallback';
+import { downloadReport } from '../api/reports';
 import styles from './Reports.module.css';
+
 
 const reportsList = [
   {
@@ -78,7 +80,28 @@ function Reports() {
   const [activeReport, setActiveReport] = useState(null);
   const [reportData, setReportData] = useState(null);
 
+  const mapReportToExportType = (reportId) => {
+    switch (reportId) {
+      case 'inventory':
+      case 'stock':
+        return 'items';
+      case 'sales':
+      case 'purchase':
+        return 'orders';
+      case 'pnl':
+      case 'customers':
+      default:
+        return 'statements';
+    }
+  };
+
+  const handleExport = (reportId, format) => {
+    const exportType = mapReportToExportType(reportId);
+    downloadReport(exportType, format);
+  };
+
   const formatAmount = (amount) => '₹' + Number(amount).toLocaleString('en-IN');
+
 
   const generateReport = (reportId) => {
     const parts = getLocalParts();
@@ -295,9 +318,35 @@ function Reports() {
         <div className={styles.modalOverlay}>
           <div className={styles.modal}>
             <div className={styles.modalHeader}>
-              <h3 className={styles.modalTitle}>{activeReport.title} Report</h3>
+              <div>
+                <h3 className={styles.modalTitle}>{activeReport.title} Report</h3>
+                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => handleExport(activeReport.id, 'pdf')}
+                    style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.25)', fontSize: 11, padding: '4px 8px', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    Export PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExport(activeReport.id, 'excel')}
+                    style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.25)', fontSize: 11, padding: '4px 8px', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    Export Excel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExport(activeReport.id, 'csv')}
+                    style={{ background: 'rgba(245, 158, 11, 0.15)', color: 'var(--accent-primary)', border: '1px solid rgba(245, 158, 11, 0.25)', fontSize: 11, padding: '4px 8px', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    Export CSV
+                  </button>
+                </div>
+              </div>
               <button className={styles.closeBtn} onClick={() => setActiveReport(null)}>×</button>
             </div>
+
 
             {/* Sales Summary Report Content */}
             {activeReport.id === 'sales' && (

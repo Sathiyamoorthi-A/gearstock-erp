@@ -44,6 +44,7 @@ public class AuthService {
                 .fullName(user.getFullName())
                 .role(user.getRole().name())
                 .department(user.getDepartment())
+                .allowedModules(user.getAllowedModules())
                 .build();
     }
 
@@ -83,6 +84,7 @@ public class AuthService {
                 .fullName(user.getFullName())
                 .role(user.getRole().name())
                 .department(user.getDepartment())
+                .allowedModules(user.getAllowedModules())
                 .build();
     }
 }

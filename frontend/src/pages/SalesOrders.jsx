@@ -4,7 +4,9 @@ import { HiShoppingCart } from 'react-icons/hi2';
 import { getAllOrders, createOrder, updateOrderStatus, updateOrder, getOrderById } from '../api/orders';
 import { getAllCustomers } from '../api/customers';
 import { getAllParts } from '../api/inventory';
+import { createPayment } from '../api/reports';
 import styles from './SalesOrders.module.css';
+
 
 const statusMap = {
   'DELIVERED': styles.badgeDelivered,
@@ -31,6 +33,8 @@ function SalesOrders() {
 
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState([]);
+  const [paymentMethod, setPaymentMethod] = useState('CASH');
+
 
   // Refs for keyboard navigation and focus management
   const customerInputRef = useRef(null);
@@ -100,6 +104,7 @@ function SalesOrders() {
     setNotes('');
     setCustomerId('');
     setCustomerSearch('');
+    setPaymentMethod('CASH');
     setShowCustomerSuggestions(false);
     setActiveCustomerSuggestionIndex(0);
     // Initialize with one empty line row
@@ -347,7 +352,17 @@ function SalesOrders() {
           }
         });
         if (!insStock) return;
-        await createOrder(payload);
+        const savedOrder = await createOrder(payload);
+        try {
+          await createPayment({
+            orderId: savedOrder.id,
+            amount: grandTotal,
+            paymentMethod: paymentMethod,
+            transactionId: 'TXN-' + Date.now()
+          });
+        } catch (payErr) {
+          console.error('Failed to log payment on checkout', payErr);
+        }
         showToast('Sales Order created successfully');
       }
       setIsModalOpen(false);
@@ -357,6 +372,7 @@ function SalesOrders() {
       showToast(editingOrder ? 'Failed to update sales order' : 'Failed to create sales order', 'error');
     }
   };
+
 
   const formatAmount = (amount) => '₹' + Number(amount).toLocaleString('en-IN');
 
@@ -526,7 +542,24 @@ function SalesOrders() {
                     placeholder="e.g. Standard garage delivery, COD"
                   />
                 </div>
+
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>Payment Method</label>
+                  <select
+                    className={styles.input}
+                    disabled={!isEditable || !!editingOrder}
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                  >
+                    <option value="CASH">CASH (Hard Cash)</option>
+                    <option value="UPI">UPI (Online/Scan)</option>
+                    <option value="CARD">CARD (Visa/Mastercard)</option>
+                    <option value="BANK_TRANSFER">BANK TRANSFER (IMPS/NEFT)</option>
+                    <option value="LENDING">LENDING (Credit Account)</option>
+                  </select>
+                </div>
               </div>
+
 
               <div className={styles.itemsSection}>
                 <div className={styles.sectionHeader}>

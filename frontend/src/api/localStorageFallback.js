@@ -636,3 +636,202 @@ export const getLocalDashboardLowStockAlerts = () => {
     remaining: p.quantity
   }));
 };
+
+// Warehouse Fallbacks
+export const getLocalWarehouses = () => {
+  let list = localStorage.getItem('local_warehouses');
+  if (!list) {
+    list = [
+      { id: 1, name: "Mumbai Central Warehouse", code: "WH-BOM-01", address: "Kurla Industrial Estate, Mumbai", active: true },
+      { id: 2, name: "Delhi NCR Hub", code: "WH-DEL-02", address: "Okhla Phase 3, New Delhi", active: true },
+      { id: 3, name: "Bangalore Logistics Center", code: "WH-BLR-03", address: "Whitefield, Bangalore", active: true }
+    ];
+    localStorage.setItem('local_warehouses', JSON.stringify(list));
+  } else {
+    list = JSON.parse(list);
+  }
+  return list;
+};
+
+export const saveLocalWarehouse = (data) => {
+  const list = getLocalWarehouses();
+  const newWh = {
+    ...data,
+    id: data.id || Date.now(),
+    active: data.active !== undefined ? data.active : true
+  };
+  list.push(newWh);
+  localStorage.setItem('local_warehouses', JSON.stringify(list));
+  return newWh;
+};
+
+export const updateLocalWarehouse = (id, data) => {
+  const list = getLocalWarehouses();
+  const index = list.findIndex(w => w.id === Number(id) || w.id === id);
+  if (index !== -1) {
+    list[index] = { ...list[index], ...data };
+    localStorage.setItem('local_warehouses', JSON.stringify(list));
+    return list[index];
+  }
+  return null;
+};
+
+export const deleteLocalWarehouse = (id) => {
+  let list = getLocalWarehouses();
+  list = list.filter(w => w.id !== Number(id) && w.id !== id);
+  localStorage.setItem('local_warehouses', JSON.stringify(list));
+  return { message: "Warehouse deleted successfully" };
+};
+
+export const getLocalWarehouseStocks = (whId) => {
+  const key = `local_wh_stocks_${whId}`;
+  let stocks = localStorage.getItem(key);
+  if (!stocks) {
+    // Generate some default stocks based on parts
+    const parts = getLocalParts();
+    stocks = parts.slice(0, 5).map((p, idx) => ({
+      id: idx + 1,
+      part: p,
+      quantity: 10 + idx * 5
+    }));
+    localStorage.setItem(key, JSON.stringify(stocks));
+  } else {
+    stocks = JSON.parse(stocks);
+  }
+  return stocks;
+};
+
+export const updateLocalWarehouseStock = (whId, partId, quantity) => {
+  const key = `local_wh_stocks_${whId}`;
+  const stocks = getLocalWarehouseStocks(whId);
+  const index = stocks.findIndex(s => s.part.id === Number(partId) || s.part.id === partId);
+  if (index !== -1) {
+    stocks[index].quantity = Number(quantity);
+  } else {
+    const parts = getLocalParts();
+    const part = parts.find(p => p.id === Number(partId) || p.id === partId);
+    if (part) {
+      stocks.push({
+        id: Date.now(),
+        part: part,
+        quantity: Number(quantity)
+      });
+    }
+  }
+  localStorage.setItem(key, JSON.stringify(stocks));
+  return stocks;
+};
+
+// CRM / Feedback fallbacks
+export const getLocalFeedbacks = () => {
+  let list = localStorage.getItem('local_feedbacks');
+  if (!list) {
+    list = [
+      { id: 1, customer: defaultCustomers[0], rating: 5, comments: "Excellent support and very fast delivery of my alternator order!", createdAt: new Date(Date.now() - 2*24*60*60*1000).toISOString() },
+      { id: 2, customer: defaultCustomers[1], rating: 4, comments: "High quality Brembo discs. Packaging was secure.", createdAt: new Date(Date.now() - 5*24*60*60*1000).toISOString() },
+      { id: 3, customer: defaultCustomers[2], rating: 3, comments: "AC compressor was delayed by one day but the part is working perfectly.", createdAt: new Date(Date.now() - 7*24*60*60*1000).toISOString() }
+    ];
+    localStorage.setItem('local_feedbacks', JSON.stringify(list));
+  } else {
+    list = JSON.parse(list);
+  }
+  return list;
+};
+
+export const saveLocalFeedback = (data) => {
+  const list = getLocalFeedbacks();
+  const newFb = {
+    id: Date.now(),
+    customer: data.customer || defaultCustomers[0],
+    rating: Number(data.rating),
+    comments: data.comments,
+    createdAt: new Date().toISOString()
+  };
+  list.unshift(newFb);
+  localStorage.setItem('local_feedbacks', JSON.stringify(list));
+  return newFb;
+};
+
+export const getLocalNotificationsLog = () => {
+  let list = localStorage.getItem('local_notifications_log');
+  if (!list) {
+    list = [
+      { id: "1", timestamp: new Date(Date.now() - 1*24*60*60*1000).toISOString().replace('T', ' ').substring(0, 19), orderNo: "#ORD-9841", customer: "Ramesh Gupta", status: "DELIVERED", smsText: "GearStock: Your order #ORD-9841 has been delivered. Thank you!", emailSubject: "GearStock Order Delivered: #ORD-9841", emailBody: "Hello Ramesh Gupta,\n\nYour order #ORD-9841 has been successfully DELIVERED." },
+      { id: "2", timestamp: new Date(Date.now() - 2*24*60*60*1000).toISOString().replace('T', ' ').substring(0, 19), orderNo: "#ORD-9841", customer: "Ramesh Gupta", status: "IN_TRANSIT", smsText: "GearStock: Your order #ORD-9841 is dispatched and in transit.", emailSubject: "GearStock Order In Transit: #ORD-9841", emailBody: "Hello Ramesh Gupta,\n\nYour order #ORD-9841 has been dispatched from our warehouse and is now IN TRANSIT." }
+    ];
+    localStorage.setItem('local_notifications_log', JSON.stringify(list));
+  } else {
+    list = JSON.parse(list);
+  }
+  return list;
+};
+
+export const addLocalNotificationLog = (order, status) => {
+  const list = getLocalNotificationsLog();
+  const orderNo = order.orderNumber || `#ORD-${order.id}`;
+  const customerName = order.customer ? order.customer.name : "Valued Customer";
+  const entry = {
+    id: Date.now().toString(),
+    timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+    orderNo: orderNo,
+    customer: customerName,
+    status: status,
+    smsText: `GearStock: Order ${orderNo} status updated to ${status}.`,
+    emailSubject: `GearStock Order Update: ${orderNo}`,
+    emailBody: `Hello ${customerName},\n\nYour order ${orderNo} has been updated to status: ${status}.`
+  };
+  list.unshift(entry);
+  if (list.length > 50) list.pop();
+  localStorage.setItem('local_notifications_log', JSON.stringify(list));
+  return entry;
+};
+
+// Payment summary fallback
+export const getLocalDailyPaymentSummary = () => {
+  let cashTotal = 15400;
+  let upiTotal = 32800;
+  let cardTotal = 24500;
+  let bankTransferTotal = 18000;
+  let lendingTotal = 5000;
+
+  return {
+    cashTotal,
+    upiTotal,
+    cardTotal,
+    bankTransferTotal,
+    lendingTotal,
+    overallTotal: cashTotal + upiTotal + cardTotal + bankTransferTotal + lendingTotal
+  };
+};
+
+export const getLocalUsers = () => {
+  let list = localStorage.getItem('local_users');
+  if (!list) {
+    list = [
+      { id: 1, username: "admin", email: "admin@gearstock.in", fullName: "Ravi Kumar", role: "ROLE_ADMIN", department: "Management", allowedModules: "dashboard,inventory,purchase-orders,sales-orders,suppliers,customers,reports,settings,warehouses,crm", enabled: true },
+      { id: 2, username: "warehouse", email: "warehouse@gearstock.in", fullName: "Suresh Patel", role: "ROLE_WAREHOUSE_MGR", department: "Warehouse", allowedModules: "dashboard,inventory,warehouses,settings", enabled: true },
+      { id: 3, username: "sales_rep", email: "sales@gearstock.in", fullName: "Rajesh Kumar", role: "ROLE_SALES", department: "Sales", allowedModules: "dashboard,inventory,sales-orders,customers", enabled: true }
+    ];
+    localStorage.setItem('local_users', JSON.stringify(list));
+  } else {
+    list = JSON.parse(list);
+  }
+  return list;
+};
+
+export const updateLocalUserPermissions = (id, payload) => {
+  const list = getLocalUsers();
+  const index = list.findIndex(u => u.id === Number(id) || u.id === id);
+  if (index !== -1) {
+    if (payload.allowedModules !== undefined) {
+      list[index].allowedModules = payload.allowedModules;
+    }
+    if (payload.department !== undefined) {
+      list[index].department = payload.department;
+    }
+    localStorage.setItem('local_users', JSON.stringify(list));
+    return list[index];
+  }
+  return null;
+};
+

@@ -1,14 +1,14 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
   application:
     name: gearstock-erp
   datasource:
-    url: jdbc:postgresql://localhost:5432/gearstockdb?TimeZone=UTC
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/gearstockdb?TimeZone=UTC}
     driver-class-name: org.postgresql.Driver
-    username: postgres
-    password: postgres
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     hikari:
       connection-init-sql: "SET TIME ZONE 'UTC'"
   jpa:

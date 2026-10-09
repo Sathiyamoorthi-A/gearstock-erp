@@ -87,4 +87,8 @@ public class AuthService {
                 .allowedModules(user.getAllowedModules())
                 .build();
     }
+
+    public User updateProfile(User user) {
+        return userRepository.save(user);
+    }
 }

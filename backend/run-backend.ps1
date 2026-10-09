@@ -49,6 +49,23 @@ Write-Host "Verifying configuration..."
 & java -version
 & mvn -version
 
-# 4. Start the Spring Boot backend
-Write-Host "Starting Spring Boot application..." -ForegroundColor Cyan
-& mvn spring-boot:run
+# 4. Clean up any orphaned background instances running on port 8080
+$port = 8080
+$conn = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
+if ($conn) {
+    $processId = $conn | Where-Object { $_.OwningProcess -gt 0 } | Select-Object -ExpandProperty OwningProcess -First 1
+    if ($processId) {
+        Write-Host "Found existing process $processId using port $port. Terminating it to prevent memory leaks..." -ForegroundColor Yellow
+        Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
+    }
+}
+
+
+# 5. Configure memory limits to prevent Java from hogging RAM
+$env:MAVEN_OPTS = "-Xmx256m"
+
+# 6. Start the Spring Boot backend with a 512MB heap limit
+Write-Host "Starting Spring Boot application (limited to 512MB heap)..." -ForegroundColor Cyan
+& mvn spring-boot:run "-Dspring-boot.run.jvmArguments=-Xmx512m -Duser.timezone=Asia/Kolkata"
+

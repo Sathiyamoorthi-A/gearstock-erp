@@ -33,6 +33,8 @@ public class User implements UserDetails {
 
     private String department;
 
+    private String phone;
+
     private String allowedModules = "dashboard,inventory,purchase-orders,sales-orders,suppliers,customers,reports,settings,warehouses,crm";
 
     private boolean enabled = true;
@@ -68,7 +70,7 @@ public class User implements UserDetails {
     public User() {
     }
 
-    public User(Long id, String username, String email, String password, String fullName, Role role, String department, String allowedModules, boolean enabled, LocalDateTime createdAt) {
+    public User(Long id, String username, String email, String password, String fullName, Role role, String department, String phone, String allowedModules, boolean enabled, LocalDateTime createdAt) {
         this.id = id;
         this.username = username;
         this.email = email;
@@ -76,6 +78,7 @@ public class User implements UserDetails {
         this.fullName = fullName;
         this.role = role;
         this.department = department;
+        this.phone = phone;
         this.allowedModules = allowedModules;
         this.enabled = enabled;
         this.createdAt = createdAt;
@@ -137,6 +140,14 @@ public class User implements UserDetails {
         this.department = department;
     }
 
+    public String getPhone() {
+        return this.phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
     public String getAllowedModules() {
         return this.allowedModules;
     }
@@ -169,6 +180,7 @@ public class User implements UserDetails {
         private String fullName;
         private Role role;
         private String department;
+        private String phone;
         private String allowedModules;
         private boolean enabled;
         private LocalDateTime createdAt;
@@ -208,6 +220,11 @@ public class User implements UserDetails {
             return this;
         }
 
+        public UserBuilder phone(String phone) {
+            this.phone = phone;
+            return this;
+        }
+
         public UserBuilder allowedModules(String allowedModules) {
             this.allowedModules = allowedModules;
             return this;
@@ -225,7 +242,7 @@ public class User implements UserDetails {
 
         public User build() {
             String modules = this.allowedModules != null ? this.allowedModules : "dashboard,inventory,purchase-orders,sales-orders,suppliers,customers,reports,settings,warehouses,crm";
-            return new User(this.id, this.username, this.email, this.password, this.fullName, this.role, this.department, modules, this.enabled, this.createdAt);
+            return new User(this.id, this.username, this.email, this.password, this.fullName, this.role, this.department, this.phone, modules, this.enabled, this.createdAt);
         }
     }
 }

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { login as apiLogin, getMe, logout as apiLogout } from '../api/auth';
+import { login as apiLogin, getMe, logout as apiLogout, updateProfile as apiUpdateProfile } from '../api/auth';
 
 const AuthContext = createContext(null);
 
@@ -39,12 +39,11 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
-  const updateUser = useCallback((updatedData) => {
-    setUser(prev => {
-      const merged = { ...prev, ...updatedData };
-      localStorage.setItem('gearstock_user', JSON.stringify(merged));
-      return merged;
-    });
+  const updateUser = useCallback(async (updatedData) => {
+    const freshUser = await apiUpdateProfile(updatedData);
+    setUser(freshUser);
+    localStorage.setItem('gearstock_user', JSON.stringify(freshUser));
+    return freshUser;
   }, []);
 
   const logout = useCallback(() => {

@@ -17,6 +17,15 @@ function Settings() {
   const [userPermissions, setUserPermissions] = useState({});
 
   useEffect(() => {
+    if (user) {
+      setFullName(user.fullName || '');
+      setEmail(user.email || '');
+      setDepartment(user.department || '');
+      setPhone(user.phone || '');
+    }
+  }, [user]);
+
+  useEffect(() => {
     if (user?.role === 'ROLE_ADMIN' || user?.role === 'ROLE_WAREHOUSE_MGR') {
       const loadUsers = async () => {
         try {
@@ -73,10 +82,10 @@ function Settings() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleProfileSave = (e) => {
+  const handleProfileSave = async (e) => {
     e.preventDefault();
     try {
-      updateUser({
+      await updateUser({
         fullName,
         email,
         department,
@@ -84,6 +93,7 @@ function Settings() {
       });
       showToast('Profile information saved successfully');
     } catch (err) {
+      console.error(err);
       showToast('Failed to save profile information', 'error');
     }
   };

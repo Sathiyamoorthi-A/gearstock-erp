@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FiArrowRight } from 'react-icons/fi';
 import {
   HiChartBar,
@@ -8,7 +8,10 @@ import {
   HiUsers,
   HiDocumentChartBar,
 } from 'react-icons/hi2';
-import { getLocalParts, getLocalOrders, getLocalCustomers, getLocalSuppliers } from '../api/localStorageFallback';
+import { getAllParts } from '../api/inventory';
+import { getAllOrders } from '../api/orders';
+import { getAllCustomers } from '../api/customers';
+import { getAllSuppliers } from '../api/suppliers';
 import { downloadReport } from '../api/reports';
 import styles from './Reports.module.css';
 
@@ -79,6 +82,34 @@ const reportsList = [
 function Reports() {
   const [activeReport, setActiveReport] = useState(null);
   const [reportData, setReportData] = useState(null);
+  const [parts, setParts] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadReportData = async () => {
+      try {
+        setLoading(true);
+        const [partsData, ordersData, customersData, suppliersData] = await Promise.all([
+          getAllParts(),
+          getAllOrders(),
+          getAllCustomers(),
+          getAllSuppliers()
+        ]);
+        setParts(partsData || []);
+        setOrders(ordersData || []);
+        setCustomers(customersData || []);
+        setSuppliers(suppliersData || []);
+      } catch (err) {
+        console.error("Failed to fetch data for reports", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadReportData();
+  }, []);
 
   const mapReportToExportType = (reportId) => {
     switch (reportId) {
@@ -104,10 +135,7 @@ function Reports() {
 
 
   const generateReport = (reportId) => {
-    const parts = getLocalParts();
-    const orders = getLocalOrders();
-    const customers = getLocalCustomers();
-    const suppliers = getLocalSuppliers();
+    if (loading) return;
 
     let data = {};
 
@@ -267,6 +295,15 @@ function Reports() {
     setReportData(data);
     setActiveReport(reportsList.find(r => r.id === reportId));
   };
+
+  if (loading) {
+    return (
+      <div className={styles.loading}>
+        <div className={styles.loadingSpinner} />
+        <span>Loading report data...</span>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>
